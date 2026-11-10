@@ -27,7 +27,11 @@ input[type=text],input[type=search],input[type=date],select{padding:12px;border:
 #q{width:84px}
 #u{width:92px}
 #c{flex:1}
-.add{width:100%;margin-top:8px}
+.r3{display:flex;gap:10px;margin-top:8px;align-items:center}
+.add{flex:1}
+.pm{display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--mut);font-size:15px}
+.pm input{width:22px;height:22px;accent-color:#e8590c}
+.tag{background:#e8590c;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
 button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:#fff;font-size:16px;cursor:pointer}
 .dt{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .dt label{color:var(--mut);font-size:14px;white-space:nowrap}
@@ -81,7 +85,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <select id="u"></select>
 <select id="c"></select>
 </div>
-<button class="add">＋ Aggiungi</button>
+<div class="r3"><label class="pm"><input type="checkbox" id="pm"> 🏷️ Promo</label><button class="add">＋ Aggiungi</button></div>
 </form>
 <div class="tools"><input type="search" id="s" placeholder="🔍 Cerca…" autocomplete="off"><select id="o" aria-label="Ordinamento"></select></div>
 <div class="cats" id="cats"></div>
@@ -124,17 +128,19 @@ function chips(){
   const chip=(label,val)=>{
     const b=document.createElement("button");b.type="button";b.textContent=label;
     b.classList.toggle("on",flt===val);
-    b.onclick=()=>{flt=(flt===val)?"":val;if(flt)$("c").value=flt;render()};
+    b.onclick=()=>{flt=(flt===val)?"":val;if(flt&&flt!=="__promo")$("c").value=flt;render()};
     ch.appendChild(b);
   };
   chip("Tutte ("+items.length+")","");
+  const np=items.filter(i=>i.promo).length;
+  if(np||flt==="__promo")chip("🏷️ Promo "+np,"__promo");
   CATS.filter(c=>counts[c]||flt===c).forEach(c=>chip(c+" "+(counts[c]||0),c));
 }
 function render(){
   chips();
   const L=$("list");L.textContent="";
   const qs=$("s").value.trim().toLowerCase();
-  const vis=items.filter(i=>(!flt||i.cat===flt)&&(!qs||i.name.toLowerCase().includes(qs)));
+  const vis=items.filter(i=>(!flt||(flt==="__promo"?i.promo:i.cat===flt))&&(!qs||i.name.toLowerCase().includes(qs)));
   if(!vis.length){const d=document.createElement("div");d.className="msg";d.textContent=items.length?"Nessun risultato":"Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
   groups(vis).forEach(g=>{
     if(g.t){const h=document.createElement("h2");h.textContent=g.t;L.appendChild(h)}
@@ -147,9 +153,11 @@ function render(){
         const k=document.createElement("select");k.className="cc";fill(k,CATS);k.value=i.cat;
         const sv=document.createElement("button");sv.type="button";sv.textContent="Salva";
         const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
-        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat}))};
+        const pl=document.createElement("label");pl.className="pm";
+        const pc=document.createElement("input");pc.type="checkbox";pc.checked=!!i.promo;pl.append(pc," 🏷️ Promo");
+        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo}))};
         cn.onclick=()=>{editId=null;render()};
-        e.append(n,q,u,k,sv,cn);L.appendChild(e);return;
+        e.append(n,q,u,k,pl,sv,cn);L.appendChild(e);return;
       }
       const r=document.createElement("div");r.className="it"+(i.done?" d":"")+(i.hl?" hl":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
@@ -157,6 +165,7 @@ function render(){
       const s=document.createElement("span");s.textContent=i.name;
       if(mode!=="cat"){const ic=document.createElement("em");ic.textContent=i.cat.split(" ")[0];s.insertBefore(ic,s.firstChild)}
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
+      if(i.promo){const t=document.createElement("b");t.className="tag";t.textContent="PROMO";s.appendChild(t)}
       s.onclick=()=>{i.hl=!i.hl;render();w(()=>api("/"+i.id,"PATCH",{hl:i.hl}))};
       const p=document.createElement("button");p.className="x";p.textContent="✏️";p.setAttribute("aria-label","Modifica");
       p.onclick=()=>{editId=i.id;render()};
@@ -179,7 +188,7 @@ async function load(){
     const o=await api("")||{};
     const m=await fetch(DB_URL+"/meta.json").then(r=>r.ok?r.json():null)||{};
     if(busy||editId)return;
-    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,ts:o[k].ts||0})).filter(i=>i.name);
+    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,ts:o[k].ts||0})).filter(i=>i.name);
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
     showHead();
@@ -196,10 +205,10 @@ $("f").onsubmit=e=>{
   const v=$("n").value.trim();if(!v)return;
   const q=$("q").value.trim().slice(0,10);
   const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,ts:Date.now()};
+  const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,promo:$("pm").checked,ts:Date.now()};
   items.push({id,...it});render();
   w(()=>api("/"+id,"PUT",it));
-  $("n").value="";$("q").value="";$("n").focus();
+  $("n").value="";$("q").value="";$("pm").checked=false;$("n").focus();
 };
 $("clr").onclick=()=>{
   const d=items.filter(i=>i.done);if(!d.length)return;
@@ -243,7 +252,7 @@ async function makePdf(){
       doc.setFont("helvetica","normal");doc.setFontSize(12);
       g.l.forEach(i=>{
         const q=i.qty?"  -  "+i.qty+(i.unit?" "+i.unit:""):"";
-        const ls=doc.splitTextToSize(cl(i.name+q),170);
+        const ls=doc.splitTextToSize(cl(i.name+q+(i.promo?"  [PROMO]":"")),170);
         need(6*ls.length+2);
         if(i.hl){doc.setFillColor(255,241,184);doc.rect(L-1.5,y-4.8,182,6*ls.length+.6,"F")}
         doc.setDrawColor(0);doc.rect(L,y-3.6,4,4);
