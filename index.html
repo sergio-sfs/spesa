@@ -13,37 +13,40 @@
 <meta name="theme-color" content="#2e8b57">
 <title>Lista della spesa</title>
 <style>
-:root{--bg:#f6f7f4;--card:#fff;--tx:#1f2a24;--mut:#6b7a72;--ac:#2e8b57;--bd:#e2e6e1}
-@media(prefers-color-scheme:dark){:root{--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f}}
+:root{--bg:#f6f7f4;--card:#fff;--tx:#1f2a24;--mut:#6b7a72;--ac:#2e8b57;--bd:#e2e6e1;--hl:#fff1b8}
+@media(prefers-color-scheme:dark){:root{--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f;--hl:#4d4421}}
 *{box-sizing:border-box}
 body{margin:0 auto;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--tx);padding:16px;max-width:560px}
 h1{font-size:22px;margin:4px 0 2px}
-.sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:12px}
 form{margin-bottom:8px}
 .r2{display:flex;gap:8px;margin-top:8px}
 input[type=text],input[type=search],input[type=date],select{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
-#n,#s{width:100%}
+#n,#t{width:100%}
+#t{margin-bottom:10px}
+#q{width:84px}
+#u{width:92px}
+#c{flex:1}
+.add{width:100%;margin-top:8px}
+button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:#fff;font-size:16px;cursor:pointer}
 .dt{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .dt label{color:var(--mut);font-size:14px;white-space:nowrap}
 #d{flex:1}
-#s{margin-bottom:12px}
-#q{width:84px}
-#u{width:92px}
-button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:#fff;font-size:16px;cursor:pointer}
-.r2 button{flex:1}
-.cats{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 14px}
+.tools{display:flex;gap:8px;margin:12px 0 10px}
+#s{flex:1}
+#o{width:140px}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .cats button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:6px 10px;font-size:13px;border-radius:16px}
 .cats button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .it{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.it.hl{background:var(--hl)}
 .it>input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac)}
-.it span{flex:1;word-break:break-word}
+.it span{flex:1;word-break:break-word;cursor:pointer}
+.it em{font-style:normal;margin-right:6px}
 .it small{color:var(--mut);font-size:14px;margin-left:6px}
 .it.d span{text-decoration:line-through;color:var(--mut)}
 .x{background:none;color:var(--mut);padding:2px 8px;font-size:20px}
-.foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
-.foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
-.msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
 .ed{flex-wrap:wrap}
 .ed .nm{flex:1 1 100%}
 .ed .qq{width:84px}
@@ -51,12 +54,15 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .ed .cc{flex:1;min-width:130px}
 .ed button{flex:1}
 .ed button.cn{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
-.pd{display:none}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
+.foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
+.msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+.pd{display:none;white-space:pre-line}
 @media print{
-  :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb}
+  :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb;--hl:#fff1b8}
   body{padding:0;max-width:none}
-  .sub,.dt,form,.cats,#s,.x,#clr,#pr{display:none!important}
-  .pd{display:block;font-size:15px;margin-bottom:10px;text-transform:capitalize}
+  .sub,.dt,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
+  .pd{display:block;font-size:15px;margin-bottom:10px}
   .it{break-inside:avoid;border-radius:0;border-width:0 0 1px 0;padding:8px 0;margin:0}
   h2{margin-top:14px;break-after:avoid}
 }
@@ -65,61 +71,100 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
+<input type="text" id="t" placeholder="📝 Titolo o nota della lista (es. Esselunga sabato)" maxlength="80" autocomplete="off">
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
 <div class="pd" id="pd"></div>
 <form id="f">
 <input type="text" id="n" placeholder="Aggiungi prodotto…" autocomplete="off" enterkeyhint="done">
 <div class="r2">
 <input type="text" id="q" inputmode="decimal" placeholder="Qtà" autocomplete="off">
-<select id="u"><option>pz</option><option>kg</option><option>g</option><option>l</option><option>ml</option><option>conf</option></select>
-<button>＋ Aggiungi</button>
+<select id="u"></select>
+<select id="c"></select>
 </div>
+<button class="add">＋ Aggiungi</button>
 </form>
+<div class="tools"><input type="search" id="s" placeholder="🔍 Cerca…" autocomplete="off"><select id="o" aria-label="Ordinamento"></select></div>
 <div class="cats" id="cats"></div>
-<input type="search" id="s" placeholder="🔍 Cerca nella lista…" autocomplete="off">
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="pr">🖨️ Stampa / PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div class="foot"><span id="cnt"></span><button id="pr">📄 PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
-const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🍝 Dispensa","🧴 Casa e igiene","📦 Altro"];
+const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🐾 Animali","💊 Farmacia","📦 Altro"];
+const OTHER=CATS[CATS.length-1];
 const UNITS=["pz","kg","g","l","ml","conf"];
-let cat=CATS[5],items=[],busy=0,editId=null;
+const SORTS=[["cat","Per categoria"],["az","A → Z"],["new","Più recenti"],["old","Inseriti prima"]];
+let items=[],busy=0,editId=null,flt="",mode="cat",pdfP=null;
+try{mode=localStorage.getItem("spesa_sort")||"cat"}catch(e){}
+if(!SORTS.some(s=>s[0]===mode))mode="cat";
 const $=id=>document.getElementById(id);
-const api=(p,m,b)=>fetch(DB_URL+"/items"+p+".json",{method:m||"GET",body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
-const catsEl=$("cats");
-CATS.forEach(c=>{const b=document.createElement("button");b.type="button";b.textContent=c;b.onclick=()=>{cat=c;render()};catsEl.appendChild(b)});
+const api=(p,m,b)=>fetch(DB_URL+"/items"+p+".json",{method:m||"GET",body:b!==undefined?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+const meta=(k,v)=>fetch(DB_URL+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
+function fill(sel,arr){arr.forEach(x=>{const o=document.createElement("option");o.textContent=x;sel.appendChild(o)})}
+fill($("u"),UNITS);fill($("c"),CATS);$("c").value=OTHER;
+SORTS.forEach(s=>{const o=document.createElement("option");o.value=s[0];o.textContent=s[1];$("o").appendChild(o)});
+$("o").value=mode;
+function cmp(a,b){
+  if(a.done!==b.done)return a.done?1:-1;
+  if(mode==="new")return b.ts-a.ts;
+  if(mode==="old")return a.ts-b.ts;
+  return a.name.localeCompare(b.name,"it");
+}
+function groups(list){
+  if(mode==="cat")return CATS.map(c=>({t:c,l:list.filter(i=>i.cat===c).sort(cmp)})).filter(g=>g.l.length);
+  return list.length?[{t:"",l:list.slice().sort(cmp)}]:[];
+}
+function fmt(v){return new Date(v+"T12:00").toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+function showHead(){
+  const t=$("t").value.trim(),v=$("d").value;
+  $("pd").textContent=[t,v?"Spesa del "+fmt(v):""].filter(Boolean).join("\n");
+}
+function chips(){
+  const ch=$("cats");ch.textContent="";
+  const counts={};items.forEach(i=>{counts[i.cat]=(counts[i.cat]||0)+1});
+  const chip=(label,val)=>{
+    const b=document.createElement("button");b.type="button";b.textContent=label;
+    b.classList.toggle("on",flt===val);
+    b.onclick=()=>{flt=(flt===val)?"":val;if(flt)$("c").value=flt;render()};
+    ch.appendChild(b);
+  };
+  chip("Tutte ("+items.length+")","");
+  CATS.filter(c=>counts[c]||flt===c).forEach(c=>chip(c+" "+(counts[c]||0),c));
+}
 function render(){
-  [...catsEl.children].forEach(b=>b.classList.toggle("on",b.textContent===cat));
+  chips();
   const L=$("list");L.textContent="";
   const qs=$("s").value.trim().toLowerCase();
-  const vis=qs?items.filter(i=>i.name.toLowerCase().includes(qs)):items;
+  const vis=items.filter(i=>(!flt||i.cat===flt)&&(!qs||i.name.toLowerCase().includes(qs)));
   if(!vis.length){const d=document.createElement("div");d.className="msg";d.textContent=items.length?"Nessun risultato":"Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
-  CATS.forEach(c=>{
-    const g=vis.filter(i=>i.cat===c).sort((a,b)=>(a.done-b.done)||(a.ts-b.ts));
-    if(!g.length)return;
-    const h=document.createElement("h2");h.textContent=c;L.appendChild(h);
-    g.forEach(i=>{
+  groups(vis).forEach(g=>{
+    if(g.t){const h=document.createElement("h2");h.textContent=g.t;L.appendChild(h)}
+    g.l.forEach(i=>{
       if(editId===i.id){
         const e=document.createElement("div");e.className="it ed";
         const n=document.createElement("input");n.type="text";n.className="nm";n.value=i.name;n.maxLength=100;
         const q=document.createElement("input");q.type="text";q.className="qq";q.inputMode="decimal";q.placeholder="Qtà";q.value=i.qty;
-        const u=document.createElement("select");u.className="uu";UNITS.forEach(x=>{const o=document.createElement("option");o.textContent=x;u.appendChild(o)});u.value=UNITS.includes(i.unit)?i.unit:"pz";
-        const k=document.createElement("select");k.className="cc";CATS.forEach(x=>{const o=document.createElement("option");o.textContent=x;k.appendChild(o)});k.value=i.cat;
+        const u=document.createElement("select");u.className="uu";fill(u,UNITS);u.value=UNITS.includes(i.unit)?i.unit:"pz";
+        const k=document.createElement("select");k.className="cc";fill(k,CATS);k.value=i.cat;
         const sv=document.createElement("button");sv.type="button";sv.textContent="Salva";
         const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
         sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat}))};
         cn.onclick=()=>{editId=null;render()};
         e.append(n,q,u,k,sv,cn);L.appendChild(e);return;
       }
-      const r=document.createElement("div");r.className="it"+(i.done?" d":"");
+      const r=document.createElement("div");r.className="it"+(i.done?" d":"")+(i.hl?" hl":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
       cb.onchange=()=>{i.done=cb.checked;render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
       const s=document.createElement("span");s.textContent=i.name;
+      if(mode!=="cat"){const ic=document.createElement("em");ic.textContent=i.cat.split(" ")[0];s.insertBefore(ic,s.firstChild)}
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
-      const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
-      x.onclick=()=>{items=items.filter(o=>o.id!==i.id);render();w(()=>api("/"+i.id,"DELETE"))};
+      s.onclick=()=>{i.hl=!i.hl;render();w(()=>api("/"+i.id,"PATCH",{hl:i.hl}))};
       const p=document.createElement("button");p.className="x";p.textContent="✏️";p.setAttribute("aria-label","Modifica");
       p.onclick=()=>{editId=i.id;render()};
+      const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
+      x.onclick=()=>{
+        if(!confirm("Eliminare «"+i.name+"»?"))return;
+        items=items.filter(o=>o.id!==i.id);render();w(()=>api("/"+i.id,"DELETE"));
+      };
       r.append(cb,s,p,x);L.appendChild(r);
     });
   });
@@ -127,40 +172,101 @@ function render(){
   $("cnt").textContent=items.length?left+" da prendere":"";
   $("clr").hidden=items.length===left;
 }
-function w(fn){busy++;fn().catch(e=>$("st").textContent="Errore di rete: riprova").finally(()=>{busy--})}
+function w(fn){busy++;fn().catch(e=>{$("st").textContent="Errore di rete: riprova"}).finally(()=>{busy--})}
 async function load(){
   if(busy||editId)return;
   try{
     const o=await api("")||{};
-    if(busy)return;
-    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:CATS[5],done:!!o[k].done,ts:o[k].ts||0})).filter(i=>i.name);
+    const m=await fetch(DB_URL+"/meta.json").then(r=>r.ok?r.json():null)||{};
+    if(busy||editId)return;
+    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,ts:o[k].ts||0})).filter(i=>i.name);
+    if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
+    if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
+    showHead();
     $("st").textContent="Condivisa · si aggiorna da sola";
     render();
-    const dv=await fetch(DB_URL+"/meta/date.json").then(r=>r.ok?r.json():null);
-    if(!busy&&document.activeElement!==$("d")){$("d").value=typeof dv==="string"?dv:"";showDate()}
   }catch(e){$("st").textContent="Offline: riprovo…"}
 }
-function showDate(){const v=$("d").value;$("pd").textContent=v?"Spesa del "+new Date(v+"T12:00").toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}
-$("pr").onclick=()=>{showDate();window.print()};
-$("d").onchange=()=>{showDate();const v=$("d").value;w(()=>fetch(DB_URL+"/meta/date.json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)}))};
+$("d").onchange=()=>{showHead();const v=$("d").value;w(()=>meta("date",v))};
+$("t").onchange=()=>{showHead();const v=$("t").value.trim().slice(0,80);w(()=>meta("title",v))};
 $("s").oninput=render;
+$("o").onchange=()=>{mode=$("o").value;try{localStorage.setItem("spesa_sort",mode)}catch(e){}render()};
 $("f").onsubmit=e=>{
   e.preventDefault();
   const v=$("n").value.trim();if(!v)return;
   const q=$("q").value.trim().slice(0,10);
   const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const it={name:v,qty:q,unit:q?$("u").value:"",cat:cat,done:false,ts:Date.now()};
+  const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,ts:Date.now()};
   items.push({id,...it});render();
   w(()=>api("/"+id,"PUT",it));
   $("n").value="";$("q").value="";$("n").focus();
 };
 $("clr").onclick=()=>{
-  const d=items.filter(i=>i.done);items=items.filter(i=>!i.done);render();
+  const d=items.filter(i=>i.done);if(!d.length)return;
+  if(!confirm("Rimuovere "+d.length+(d.length===1?" prodotto spuntato?":" prodotti spuntati?")))return;
+  items=items.filter(i=>!i.done);render();
   d.forEach(i=>w(()=>api("/"+i.id,"DELETE")));
 };
+function pdfLib(){
+  if(window.jspdf)return Promise.resolve();
+  if(!pdfP)pdfP=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=()=>{pdfP=null;rej(new Error("jspdf"))};
+    document.head.appendChild(s);
+  });
+  return pdfP;
+}
+async function makePdf(){
+  const btn=$("pr");btn.disabled=true;
+  try{
+    try{await pdfLib()}catch(e){showHead();window.print();return}
+    const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
+    const cl=t=>String(t).replace(/[^\x20-\x7E -ÿ]/g,"").trim();
+    const L=15;let y=20;
+    const title=cl($("t").value)||"Lista della spesa";
+    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.setTextColor(0);
+    doc.text(title,L,y);y+=8;
+    const v=$("d").value;
+    doc.setFont("helvetica","normal");doc.setFontSize(11);doc.setTextColor(90);
+    if(v){doc.text(cl("Spesa del "+fmt(v)),L,y);y+=7}
+    doc.setTextColor(0);y+=3;
+    const need=h=>{if(y+h>285){doc.addPage();y=20}};
+    if(!items.length){doc.setFontSize(12);doc.text("Lista vuota",L,y)}
+    groups(items).forEach(g=>{
+      if(g.t){
+        need(16);y+=3;
+        doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(0);
+        doc.text(cl(g.t).toUpperCase(),L,y);y+=2;
+        doc.setDrawColor(180);doc.line(L,y,195,y);y+=6;
+      }
+      doc.setFont("helvetica","normal");doc.setFontSize(12);
+      g.l.forEach(i=>{
+        const q=i.qty?"  -  "+i.qty+(i.unit?" "+i.unit:""):"";
+        const ls=doc.splitTextToSize(cl(i.name+q),170);
+        need(6*ls.length+2);
+        if(i.hl){doc.setFillColor(255,241,184);doc.rect(L-1.5,y-4.8,182,6*ls.length+.6,"F")}
+        doc.setDrawColor(0);doc.rect(L,y-3.6,4,4);
+        if(i.done){doc.line(L+.6,y-3,L+3.4,y-.4);doc.line(L+3.4,y-3,L+.6,y-.4);doc.setTextColor(130)}else doc.setTextColor(0);
+        doc.text(ls,L+7,y);
+        y+=6*ls.length+1;
+      });
+    });
+    const blob=doc.output("blob");
+    const file=new File([blob],"lista-spesa.pdf",{type:"application/pdf"});
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}
+    }catch(e){if(e&&e.name==="AbortError")return}
+    const u=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=u;a.download="lista-spesa.pdf";a.target="_blank";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),60000);
+  }finally{btn.disabled=false}
+}
+$("pr").onclick=()=>{makePdf().catch(()=>{$("st").textContent="Errore PDF: riprova"})};
 render();
 if(!DB_URL){$("st").textContent="Database non ancora configurato"}
-else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()})}
+else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});pdfLib().catch(()=>{})}
 </script>
 </body>
 </html>
