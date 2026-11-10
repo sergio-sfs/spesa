@@ -14,8 +14,12 @@ h1{font-size:22px;margin:4px 0 2px}
 .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
 form{margin-bottom:8px}
 .r2{display:flex;gap:8px;margin-top:8px}
-input[type=text],select{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
-#n{width:100%}
+input[type=text],input[type=search],input[type=date],select{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
+#n,#s{width:100%}
+.dt{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dt label{color:var(--mut);font-size:14px;white-space:nowrap}
+#d{flex:1}
+#s{margin-bottom:12px}
 #q{width:84px}
 #u{width:92px}
 button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:#fff;font-size:16px;cursor:pointer}
@@ -38,6 +42,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
+<div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
 <form id="f">
 <input type="text" id="n" placeholder="Aggiungi prodotto…" autocomplete="off" enterkeyhint="done">
 <div class="r2">
@@ -47,6 +52,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 </div>
 </form>
 <div class="cats" id="cats"></div>
+<input type="search" id="s" placeholder="🔍 Cerca nella lista…" autocomplete="off">
 <div id="list"></div>
 <div class="foot"><span id="cnt"></span><button id="clr" hidden>Rimuovi spuntati</button></div>
 <script>
@@ -60,9 +66,11 @@ CATS.forEach(c=>{const b=document.createElement("button");b.type="button";b.text
 function render(){
   [...catsEl.children].forEach(b=>b.classList.toggle("on",b.textContent===cat));
   const L=$("list");L.textContent="";
-  if(!items.length){const d=document.createElement("div");d.className="msg";d.textContent="Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
+  const qs=$("s").value.trim().toLowerCase();
+  const vis=qs?items.filter(i=>i.name.toLowerCase().includes(qs)):items;
+  if(!vis.length){const d=document.createElement("div");d.className="msg";d.textContent=items.length?"Nessun risultato":"Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
   CATS.forEach(c=>{
-    const g=items.filter(i=>i.cat===c).sort((a,b)=>(a.done-b.done)||(a.ts-b.ts));
+    const g=vis.filter(i=>i.cat===c).sort((a,b)=>(a.done-b.done)||(a.ts-b.ts));
     if(!g.length)return;
     const h=document.createElement("h2");h.textContent=c;L.appendChild(h);
     g.forEach(i=>{
@@ -89,8 +97,12 @@ async function load(){
     items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:CATS[5],done:!!o[k].done,ts:o[k].ts||0})).filter(i=>i.name);
     $("st").textContent="Condivisa · si aggiorna da sola";
     render();
+    const dv=await fetch(DB_URL+"/meta/date.json").then(r=>r.ok?r.json():null);
+    if(!busy&&document.activeElement!==$("d"))$("d").value=typeof dv==="string"?dv:"";
   }catch(e){$("st").textContent="Offline: riprovo…"}
 }
+$("d").onchange=()=>{const v=$("d").value;w(()=>fetch(DB_URL+"/meta/date.json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)}))};
+$("s").oninput=render;
 $("f").onsubmit=e=>{
   e.preventDefault();
   const v=$("n").value.trim();if(!v)return;
