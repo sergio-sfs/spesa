@@ -36,7 +36,7 @@ button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:
 .cats button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .it{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:6px}
-.it input{width:22px;height:22px;accent-color:var(--ac)}
+.it>input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac)}
 .it span{flex:1;word-break:break-word}
 .it small{color:var(--mut);font-size:14px;margin-left:6px}
 .it.d span{text-decoration:line-through;color:var(--mut)}
@@ -44,6 +44,13 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
 .foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
 .msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+.ed{flex-wrap:wrap}
+.ed .nm{flex:1 1 100%}
+.ed .qq{width:84px}
+.ed .uu{width:92px}
+.ed .cc{flex:1;min-width:130px}
+.ed button{flex:1}
+.ed button.cn{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
 .pd{display:none}
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb}
@@ -75,7 +82,8 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🍝 Dispensa","🧴 Casa e igiene","📦 Altro"];
-let cat=CATS[5],items=[],busy=0;
+const UNITS=["pz","kg","g","l","ml","conf"];
+let cat=CATS[5],items=[],busy=0,editId=null;
 const $=id=>document.getElementById(id);
 const api=(p,m,b)=>fetch(DB_URL+"/items"+p+".json",{method:m||"GET",body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
 const catsEl=$("cats");
@@ -91,6 +99,18 @@ function render(){
     if(!g.length)return;
     const h=document.createElement("h2");h.textContent=c;L.appendChild(h);
     g.forEach(i=>{
+      if(editId===i.id){
+        const e=document.createElement("div");e.className="it ed";
+        const n=document.createElement("input");n.type="text";n.className="nm";n.value=i.name;n.maxLength=100;
+        const q=document.createElement("input");q.type="text";q.className="qq";q.inputMode="decimal";q.placeholder="Qtà";q.value=i.qty;
+        const u=document.createElement("select");u.className="uu";UNITS.forEach(x=>{const o=document.createElement("option");o.textContent=x;u.appendChild(o)});u.value=UNITS.includes(i.unit)?i.unit:"pz";
+        const k=document.createElement("select");k.className="cc";CATS.forEach(x=>{const o=document.createElement("option");o.textContent=x;k.appendChild(o)});k.value=i.cat;
+        const sv=document.createElement("button");sv.type="button";sv.textContent="Salva";
+        const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
+        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat}))};
+        cn.onclick=()=>{editId=null;render()};
+        e.append(n,q,u,k,sv,cn);L.appendChild(e);return;
+      }
       const r=document.createElement("div");r.className="it"+(i.done?" d":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
       cb.onchange=()=>{i.done=cb.checked;render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
@@ -98,7 +118,9 @@ function render(){
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
       const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
       x.onclick=()=>{items=items.filter(o=>o.id!==i.id);render();w(()=>api("/"+i.id,"DELETE"))};
-      r.append(cb,s,x);L.appendChild(r);
+      const p=document.createElement("button");p.className="x";p.textContent="✏️";p.setAttribute("aria-label","Modifica");
+      p.onclick=()=>{editId=i.id;render()};
+      r.append(cb,s,p,x);L.appendChild(r);
     });
   });
   const left=items.filter(i=>!i.done).length;
@@ -107,7 +129,7 @@ function render(){
 }
 function w(fn){busy++;fn().catch(e=>$("st").textContent="Errore di rete: riprova").finally(()=>{busy--})}
 async function load(){
-  if(busy)return;
+  if(busy||editId)return;
   try{
     const o=await api("")||{};
     if(busy)return;
