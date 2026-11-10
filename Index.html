@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Lista della spesa</title>
+<style>
+:root{--bg:#f6f7f4;--card:#fff;--tx:#1f2a24;--mut:#6b7a72;--ac:#2e8b57;--bd:#e2e6e1}
+@media(prefers-color-scheme:dark){:root{--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f}}
+*{box-sizing:border-box}
+body{margin:0 auto;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--tx);padding:16px;max-width:560px}
+h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+form{display:flex;gap:8px;margin-bottom:8px}
+input[type=text]{flex:1;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
+button{border:0;border-radius:10px;padding:12px 16px;background:var(--ac);color:#fff;font-size:16px;cursor:pointer}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.cats button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:6px 10px;font-size:13px;border-radius:16px}
+.cats button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.it{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.it input{width:22px;height:22px;accent-color:var(--ac)}
+.it span{flex:1;word-break:break-word}
+.it.d span{text-decoration:line-through;color:var(--mut)}
+.x{background:none;color:var(--mut);padding:2px 8px;font-size:20px}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
+.foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
+.msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+</style>
+</head>
+<body>
+<h1>🛒 Lista della spesa</h1>
+<div class="sub" id="st">Connessione…</div>
+<form id="f"><input type="text" id="n" placeholder="Aggiungi prodotto…" autocomplete="off" enterkeyhint="done"><button>＋</button></form>
+<div class="cats" id="cats"></div>
+<div id="list"></div>
+<div class="foot"><span id="cnt"></span><button id="clr" hidden>Rimuovi spuntati</button></div>
+<script>
+const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
+const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🍝 Dispensa","🧴 Casa e igiene","📦 Altro"];
+let cat=CATS[5],items=[],busy=0;
+const $=id=>document.getElementById(id);
+const api=(p,m,b)=>fetch(DB_URL+"/items"+p+".json",{method:m||"GET",body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+const catsEl=$("cats");
+CATS.forEach(c=>{const b=document.createElement("button");b.type="button";b.textContent=c;b.onclick=()=>{cat=c;render()};catsEl.appendChild(b)});
+function render(){
+  [...catsEl.children].forEach(b=>b.classList.toggle("on",b.textContent===cat));
+  const L=$("list");L.textContent="";
+  if(!items.length){const d=document.createElement("div");d.className="msg";d.textContent="Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
+  CATS.forEach(c=>{
+    const g=items.filter(i=>i.cat===c).sort((a,b)=>(a.done-b.done)||(a.ts-b.ts));
+    if(!g.length)return;
+    const h=document.createElement("h2");h.textContent=c;L.appendChild(h);
+    g.forEach(i=>{
+      const r=document.createElement("div");r.className="it"+(i.done?" d":"");
+      const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
+      cb.onchange=()=>{i.done=cb.checked;render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
+      const s=document.createElement("span");s.textContent=i.name;
+      const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
+      x.onclick=()=>{items=items.filter(o=>o.id!==i.id);render();w(()=>api("/"+i.id,"DELETE"))};
+      r.append(cb,s,x);L.appendChild(r);
+    });
+  });
+  const left=items.filter(i=>!i.done).length;
+  $("cnt").textContent=items.length?left+" da prendere":"";
+  $("clr").hidden=items.length===left;
+}
+function w(fn){busy++;fn().catch(e=>$("st").textContent="Errore di rete: riprova").finally(()=>{busy--})}
+async function load(){
+  if(busy)return;
+  try{
+    const o=await api("")||{};
+    if(busy)return;
+    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),cat:CATS.includes(o[k].cat)?o[k].cat:CATS[5],done:!!o[k].done,ts:o[k].ts||0})).filter(i=>i.name);
+    $("st").textContent="Condivisa · si aggiorna da sola";
+    render();
+  }catch(e){$("st").textContent="Offline: riprovo…"}
+}
+$("f").onsubmit=e=>{
+  e.preventDefault();
+  const v=$("n").value.trim();if(!v)return;
+  const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const it={name:v,cat:cat,done:false,ts:Date.now()};
+  items.push({id,...it});render();
+  w(()=>api("/"+id,"PUT",it));
+  $("n").value="";$("n").focus();
+};
+$("clr").onclick=()=>{
+  const d=items.filter(i=>i.done);items=items.filter(i=>!i.done);render();
+  d.forEach(i=>w(()=>api("/"+i.id,"DELETE")));
+};
+render();
+if(!DB_URL){$("st").textContent="Database non ancora configurato"}
+else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()})}
+</script>
+</body>
+</html>
