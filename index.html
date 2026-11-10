@@ -61,11 +61,14 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
 .foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
 .msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+.lists{display:flex;gap:8px;margin-bottom:10px}
+#L{flex:1}
+.lists button{padding:10px 12px;font-size:16px;background:var(--card);color:var(--tx);border:1px solid var(--bd)}
 .pd{display:none;white-space:pre-line}
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb;--hl:#fff1b8}
   body{padding:0;max-width:none}
-  .sub,.dt,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
+  .sub,.dt,.lists,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
   .pd{display:block;font-size:15px;margin-bottom:10px}
   .it{break-inside:avoid;border-radius:0;border-width:0 0 1px 0;padding:8px 0;margin:0}
   h2{margin-top:14px;break-after:avoid}
@@ -75,6 +78,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
+<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista" hidden>🗑️</button></div>
 <input type="text" id="t" placeholder="📝 Titolo o nota della lista (es. Esselunga sabato)" maxlength="80" autocomplete="off">
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
 <div class="pd" id="pd"></div>
@@ -98,11 +102,15 @@ const OTHER=CATS[CATS.length-1];
 const UNITS=["pz","kg","g","l","ml","conf"];
 const SORTS=[["cat","Per categoria"],["az","A → Z"],["new","Più recenti"],["old","Inseriti prima"]];
 let items=[],busy=0,editId=null,flt="",mode="cat",pdfP=null;
+const idOk=h=>/^[a-z0-9]{3,20}$/.test(h);
+let curId=location.hash.slice(1);
+if(!idOk(curId)){try{curId=localStorage.getItem("spesa_list")||"main"}catch(e){curId="main"}if(!idOk(curId))curId="main"}
+let base=curId==="main"?"":"/lists/"+curId;
 try{mode=localStorage.getItem("spesa_sort")||"cat"}catch(e){}
 if(!SORTS.some(s=>s[0]===mode))mode="cat";
 const $=id=>document.getElementById(id);
-const api=(p,m,b)=>fetch(DB_URL+"/items"+p+".json",{method:m||"GET",body:b!==undefined?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
-const meta=(k,v)=>fetch(DB_URL+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
+const api=(p,m,b)=>fetch(DB_URL+base+"/items"+p+".json",{method:m||"GET",body:b!==undefined?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+const meta=(k,v)=>fetch(DB_URL+base+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
 function fill(sel,arr){arr.forEach(x=>{const o=document.createElement("option");o.textContent=x;sel.appendChild(o)})}
 fill($("u"),UNITS);fill($("c"),CATS);$("c").value=OTHER;
 SORTS.forEach(s=>{const o=document.createElement("option");o.value=s[0];o.textContent=s[1];$("o").appendChild(o)});
@@ -185,12 +193,17 @@ function w(fn){busy++;fn().catch(e=>{$("st").textContent="Errore di rete: riprov
 async function load(){
   if(busy||editId)return;
   try{
-    const o=await api("")||{};
-    const m=await fetch(DB_URL+"/meta.json").then(r=>r.ok?r.json():null)||{};
-    if(busy||editId)return;
+    const my=curId;
+    const root=await fetch(DB_URL+"/.json").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})||{};
+    if(busy||editId||my!==curId)return;
+    const lists=root.lists||{};
+    if(curId!=="main"&&!lists[curId]){location.hash="#main";return}
+    const cur=curId==="main"?root:lists[curId];
+    const o=cur.items||{},m=cur.meta||{};
     items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,ts:o[k].ts||0})).filter(i=>i.name);
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
+    buildLists(root);
     showHead();
     $("st").textContent="Condivisa · si aggiorna da sola";
     render();
@@ -198,6 +211,63 @@ async function load(){
 }
 $("d").onchange=()=>{showHead();const v=$("d").value;w(()=>meta("date",v))};
 $("t").onchange=()=>{showHead();const v=$("t").value.trim().slice(0,80);w(()=>meta("title",v))};
+let lsig="";
+function buildLists(root){
+  const L=root.lists||{};
+  const ids=["main",...Object.keys(L).sort()];
+  const lab=id=>{
+    const m=id==="main"?root.meta:(L[id]||{}).meta;
+    let t=(m&&m.title)||(id==="main"?"Lista principale":"Lista senza nome");
+    if(m&&typeof m.date==="string"&&m.date.length===10)t+=" · "+m.date.slice(8,10)+"/"+m.date.slice(5,7);
+    return t;
+  };
+  const sig=ids.map(id=>id+"="+lab(id)).join("|")+"#"+curId;
+  if(sig!==lsig){
+    lsig=sig;const s=$("L");s.textContent="";
+    ids.forEach(id=>{const o=document.createElement("option");o.value=id;o.textContent=lab(id);s.appendChild(o)});
+    s.value=curId;
+  }
+  $("dl").hidden=curId==="main";
+}
+function switchList(id){
+  if(id===curId)return;
+  curId=id;base=id==="main"?"":"/lists/"+id;
+  items=[];flt="";editId=null;lsig="";
+  ["t","d","s"].forEach(k=>{$(k).value=""});showHead();
+  try{localStorage.setItem("spesa_list",id)}catch(e){}
+  render();load();
+}
+window.onhashchange=()=>{const h=location.hash.slice(1);switchList(idOk(h)?h:"main")};
+$("L").onchange=()=>{location.hash="#"+$("L").value};
+$("nl").onclick=async()=>{
+  const name=prompt("Nome della nuova lista (es. Esselunga sabato)");
+  if(name===null)return;
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  busy++;
+  try{
+    const r=await fetch(DB_URL+"/lists/"+id+"/meta.json",{method:"PUT",body:JSON.stringify({title:name.trim().slice(0,80)||"Nuova lista",date:""})});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    location.hash="#"+id;
+  }catch(e){$("st").textContent="Errore di rete: riprova"}
+  finally{busy--}
+};
+$("dl").onclick=async()=>{
+  if(curId==="main")return;
+  if(!confirm("Eliminare questa lista e tutte le sue voci?"))return;
+  busy++;
+  try{
+    const r=await fetch(DB_URL+"/lists/"+curId+".json",{method:"DELETE"});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    location.hash="#main";
+  }catch(e){$("st").textContent="Errore di rete: riprova"}
+  finally{busy--}
+};
+$("sh").onclick=async()=>{
+  const url=location.origin+location.pathname+"#"+curId;
+  const title=$("t").value.trim()||"Lista della spesa";
+  try{if(navigator.share){await navigator.share({title,text:"Lista della spesa: "+title,url});return}}catch(e){if(e&&e.name==="AbortError")return}
+  try{await navigator.clipboard.writeText(url);$("st").textContent="Link copiato: incollalo in un messaggio"}catch(e){prompt("Copia il link:",url)}
+};
 $("s").oninput=render;
 $("o").onchange=()=>{mode=$("o").value;try{localStorage.setItem("spesa_sort",mode)}catch(e){}render()};
 $("f").onsubmit=e=>{
