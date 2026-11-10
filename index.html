@@ -37,12 +37,22 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
 .foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
 .msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+.pd{display:none}
+@media print{
+  :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb}
+  body{padding:0;max-width:none}
+  .sub,.dt,form,.cats,#s,.x,#clr,#pr{display:none!important}
+  .pd{display:block;font-size:15px;margin-bottom:10px;text-transform:capitalize}
+  .it{break-inside:avoid;border-radius:0;border-width:0 0 1px 0;padding:8px 0;margin:0}
+  h2{margin-top:14px;break-after:avoid}
+}
 </style>
 </head>
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
+<div class="pd" id="pd"></div>
 <form id="f">
 <input type="text" id="n" placeholder="Aggiungi prodotto…" autocomplete="off" enterkeyhint="done">
 <div class="r2">
@@ -54,7 +64,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="cats" id="cats"></div>
 <input type="search" id="s" placeholder="🔍 Cerca nella lista…" autocomplete="off">
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div class="foot"><span id="cnt"></span><button id="pr">🖨️ Stampa / PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🍝 Dispensa","🧴 Casa e igiene","📦 Altro"];
@@ -98,10 +108,12 @@ async function load(){
     $("st").textContent="Condivisa · si aggiorna da sola";
     render();
     const dv=await fetch(DB_URL+"/meta/date.json").then(r=>r.ok?r.json():null);
-    if(!busy&&document.activeElement!==$("d"))$("d").value=typeof dv==="string"?dv:"";
+    if(!busy&&document.activeElement!==$("d")){$("d").value=typeof dv==="string"?dv:"";showDate()}
   }catch(e){$("st").textContent="Offline: riprovo…"}
 }
-$("d").onchange=()=>{const v=$("d").value;w(()=>fetch(DB_URL+"/meta/date.json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)}))};
+function showDate(){const v=$("d").value;$("pd").textContent=v?"Spesa del "+new Date(v+"T12:00").toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}
+$("pr").onclick=()=>{showDate();window.print()};
+$("d").onchange=()=>{showDate();const v=$("d").value;w(()=>fetch(DB_URL+"/meta/date.json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)}))};
 $("s").oninput=render;
 $("f").onsubmit=e=>{
   e.preventDefault();
