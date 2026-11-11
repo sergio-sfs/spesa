@@ -203,8 +203,11 @@ function render(){
     });
   });
   const nn=items.filter(isNew).length;
-  $("nw").hidden=!nn;$("nwt").textContent="🔔 "+nn+" novità (voci nuove o modificate)";
-  document.title=(nn?"("+nn+") ":"")+"Lista della spesa";
+  const dn=(loaded&&snap)?Object.keys(snap).filter(id=>!items.some(i=>i.id===id)).map(id=>String(snap[id]).split("|")[0]):[];
+  const tot=nn+dn.length;
+  $("nw").hidden=!tot;
+  $("nwt").textContent=[nn?"🔔 "+nn+(nn===1?" nuova o modificata":" nuove o modificate"):"",dn.length?"🗑️ "+dn.length+(dn.length===1?" eliminata: ":" eliminate: ")+dn.slice(0,3).join(", ")+(dn.length>3?"…":""):""].filter(Boolean).join(" · ");
+  document.title=(tot?"("+tot+") ":"")+"Lista della spesa";
   const left=items.filter(i=>!i.done).length;
   $("cnt").textContent=items.length?left+" da prendere":"";
   $("clr").hidden=items.length===left;
