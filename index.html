@@ -23,7 +23,9 @@ form{margin-bottom:8px}
 .r2{display:flex;gap:8px;margin-top:8px}
 input[type=text],input[type=search],input[type=date],select{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
 #n,#t{width:100%}
-#t{margin-bottom:10px}
+#t{margin-bottom:10px;color:#d92d20;font-weight:600}
+@media(prefers-color-scheme:dark){#t{color:#ff6b5e}}
+.sub:empty{display:none}
 #q{width:84px}
 #u{width:92px}
 #c{flex:1}
@@ -64,7 +66,8 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .lists{display:flex;gap:8px;margin-bottom:10px}
 #L{flex:1}
 .lists button{padding:10px 12px;font-size:16px;background:var(--card);color:var(--tx);border:1px solid var(--bd)}
-.pd{display:none;white-space:pre-line}
+.pd{display:none}
+.pd b{color:#d92d20;font-size:20px}
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb;--hl:#fff1b8}
   body{padding:0;max-width:none}
@@ -78,10 +81,10 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
-<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista" hidden>🗑️</button></div>
+<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista">🗑️</button></div>
 <input type="text" id="t" placeholder="📝 Titolo o nota della lista (es. Esselunga sabato)" maxlength="80" autocomplete="off">
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
-<div class="pd" id="pd"></div>
+<div class="pd"><b id="pdt"></b><div id="pdd"></div></div>
 <form id="f">
 <input type="text" id="n" placeholder="Aggiungi prodotto…" autocomplete="off" enterkeyhint="done">
 <div class="r2">
@@ -128,7 +131,7 @@ function groups(list){
 function fmt(v){return new Date(v+"T12:00").toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
 function showHead(){
   const t=$("t").value.trim(),v=$("d").value;
-  $("pd").textContent=[t,v?"Spesa del "+fmt(v):""].filter(Boolean).join("\n");
+  $("pdt").textContent=t;$("pdd").textContent=v?"Spesa del "+fmt(v):"";
 }
 function chips(){
   const ch=$("cats");ch.textContent="";
@@ -205,7 +208,7 @@ async function load(){
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
     buildLists(root);
     showHead();
-    $("st").textContent="Condivisa · si aggiorna da sola";
+    $("st").textContent=m.shared===true?"🔗 Condivisa":"";
     render();
   }catch(e){$("st").textContent="Offline: riprovo…"}
 }
@@ -227,7 +230,6 @@ function buildLists(root){
     ids.forEach(id=>{const o=document.createElement("option");o.value=id;o.textContent=lab(id);s.appendChild(o)});
     s.value=curId;
   }
-  $("dl").hidden=curId==="main";
 }
 function switchList(id){
   if(id===curId)return;
@@ -252,21 +254,28 @@ $("nl").onclick=async()=>{
   finally{busy--}
 };
 $("dl").onclick=async()=>{
-  if(curId==="main")return;
-  if(!confirm("Eliminare questa lista e tutte le sue voci?"))return;
+  const main=curId==="main";
+  if(!confirm(main?"Svuotare la lista principale? Verranno eliminati voci, titolo e data.":"Eliminare questa lista e tutte le sue voci?"))return;
   busy++;
   try{
-    const r=await fetch(DB_URL+"/lists/"+curId+".json",{method:"DELETE"});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    location.hash="#main";
+    if(main){
+      for(const k of ["items","meta"]){const r=await fetch(DB_URL+"/"+k+".json",{method:"DELETE"});if(!r.ok)throw new Error("HTTP "+r.status)}
+      items=[];flt="";editId=null;lsig="";$("st").textContent="";
+      ["t","d","s"].forEach(k=>{$(k).value=""});showHead();render();
+    }else{
+      const r=await fetch(DB_URL+"/lists/"+curId+".json",{method:"DELETE"});
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      location.hash="#main";
+    }
   }catch(e){$("st").textContent="Errore di rete: riprova"}
   finally{busy--}
 };
 $("sh").onclick=async()=>{
   const url=location.origin+location.pathname+"#"+curId;
   const title=$("t").value.trim()||"Lista della spesa";
-  try{if(navigator.share){await navigator.share({title,text:"Lista della spesa: "+title,url});return}}catch(e){if(e&&e.name==="AbortError")return}
-  try{await navigator.clipboard.writeText(url);$("st").textContent="Link copiato: incollalo in un messaggio"}catch(e){prompt("Copia il link:",url)}
+  const mark=()=>{w(()=>meta("shared",true));$("st").textContent="🔗 Condivisa"};
+  try{if(navigator.share){await navigator.share({title,text:"Lista della spesa: "+title,url});mark();return}}catch(e){if(e&&e.name==="AbortError")return}
+  try{await navigator.clipboard.writeText(url);mark();alert("Link copiato: incollalo in un messaggio")}catch(e){prompt("Copia il link:",url)}
 };
 $("s").oninput=render;
 $("o").onchange=()=>{mode=$("o").value;try{localStorage.setItem("spesa_sort",mode)}catch(e){}render()};
@@ -304,7 +313,7 @@ async function makePdf(){
     const cl=t=>String(t).replace(/[^\x20-\x7E -ÿ]/g,"").trim();
     const L=15;let y=20;
     const title=cl($("t").value)||"Lista della spesa";
-    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.setTextColor(0);
+    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.setTextColor(217,45,32);
     doc.text(title,L,y);y+=8;
     const v=$("d").value;
     doc.setFont("helvetica","normal");doc.setFontSize(11);doc.setTextColor(90);
