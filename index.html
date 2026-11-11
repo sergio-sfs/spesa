@@ -74,7 +74,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb;--hl:#fff1b8}
   body{padding:0;max-width:none}
-  .sub,.dt,.lists,.nw,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
+  .sub,.dt,.lists,.nw,form,.cats,.tools,#t,.x,#clr,#pr,#me{display:none!important}
   .pd{display:block;font-size:15px;margin-bottom:10px}
   .it{break-inside:avoid;border-radius:0;border-width:0 0 1px 0;padding:8px 0;margin:0}
   h2{margin-top:14px;break-after:avoid}
@@ -101,7 +101,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="nw" id="nw" hidden><span id="nwt"></span><button id="nwb">Segna come viste</button></div>
 <div class="cats" id="cats"></div>
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="pr">📄 PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
@@ -114,6 +114,9 @@ let curId=location.hash.slice(1);
 if(!idOk(curId)){try{curId=localStorage.getItem("spesa_list")||"main"}catch(e){curId="main"}if(!idOk(curId))curId="main"}
 let base=curId==="main"?"":"/lists/"+curId;
 let snap=null,loaded=false;
+let myName="";try{myName=localStorage.getItem("spesa_name")||""}catch(e){}
+function setName(n){myName=String(n).trim().slice(0,20);try{localStorage.setItem("spesa_name",myName)}catch(e){}$("me").textContent="👤 "+(myName||"Imposta nome")}
+function ensureName(){if(myName)return;const n=prompt("Come ti chiami? Il nome comparirà sulle voci che aggiungi o modifichi.");if(n&&n.trim())setName(n)}
 const SK=()=>"spesa_snap_"+curId;
 function loadSnap(){try{const s=localStorage.getItem(SK());snap=s?JSON.parse(s):null}catch(e){snap=null}}
 function saveSnap(){try{localStorage.setItem(SK(),JSON.stringify(snap))}catch(e){}}
@@ -179,18 +182,19 @@ function render(){
         const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
         const pl=document.createElement("label");pl.className="pm";
         const pc=document.createElement("input");pc.type="checkbox";pc.checked=!!i.promo;pl.append(pc," 🏷️ Promo");
-        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;mine(i);editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo}))};
+        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;ensureName();i.mod=myName;mine(i);editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo,mod:myName}))};
         cn.onclick=()=>{editId=null;render()};
         e.append(n,q,u,k,pl,sv,cn);L.appendChild(e);return;
       }
       const r=document.createElement("div");r.className="it"+(i.done?" d":"")+(i.hl?" hl":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
-      cb.onchange=()=>{i.done=cb.checked;mine(i);render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
+      cb.onchange=()=>{i.done=cb.checked;ensureName();i.mod=myName;mine(i);render();w(()=>api("/"+i.id,"PATCH",{done:i.done,mod:myName}))};
       const s=document.createElement("span");s.textContent=i.name;
       const pre=(isNew(i)?"🆕":"")+(mode!=="cat"?i.cat.split(" ")[0]:"");
       if(pre){const ic=document.createElement("em");ic.textContent=pre;s.insertBefore(ic,s.firstChild)}
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
       if(i.promo){const t=document.createElement("b");t.className="tag";t.textContent="PROMO";s.appendChild(t)}
+      if(isNew(i)&&i.mod){const au=document.createElement("small");au.textContent="· "+i.mod;s.appendChild(au)}
       s.onclick=()=>{i.hl=!i.hl;render();w(()=>api("/"+i.id,"PATCH",{hl:i.hl}))};
       const p=document.createElement("button");p.className="x";p.textContent="✏️";p.setAttribute("aria-label","Modifica");
       p.onclick=()=>{editId=i.id;render()};
@@ -205,8 +209,9 @@ function render(){
   const nn=items.filter(isNew).length;
   const dn=(loaded&&snap)?Object.keys(snap).filter(id=>!items.some(i=>i.id===id)).map(id=>String(snap[id]).split("|")[0]):[];
   const tot=nn+dn.length;
+  const who=[...new Set(items.filter(isNew).map(i=>i.mod).filter(Boolean))];
   $("nw").hidden=!tot;
-  $("nwt").textContent=[nn?"🔔 "+nn+(nn===1?" nuova o modificata":" nuove o modificate"):"",dn.length?"🗑️ "+dn.length+(dn.length===1?" eliminata: ":" eliminate: ")+dn.slice(0,3).join(", ")+(dn.length>3?"…":""):""].filter(Boolean).join(" · ");
+  $("nwt").textContent=[nn?"🔔 "+nn+(nn===1?" nuova o modificata":" nuove o modificate")+(who.length?" da "+who.join(", "):""):"",dn.length?"🗑️ "+dn.length+(dn.length===1?" eliminata: ":" eliminate: ")+dn.slice(0,3).join(", ")+(dn.length>3?"…":""):""].filter(Boolean).join(" · ");
   document.title=(tot?"("+tot+") ":"")+"Lista della spesa";
   const left=items.filter(i=>!i.done).length;
   $("cnt").textContent=items.length?left+" da prendere":"";
@@ -223,7 +228,7 @@ async function load(){
     if(curId!=="main"&&!lists[curId]){location.hash="#main";return}
     const cur=curId==="main"?root:lists[curId];
     const o=cur.items||{},m=cur.meta||{};
-    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,ts:o[k].ts||0})).filter(i=>i.name);
+    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,by:String(o[k].by||""),mod:String(o[k].mod||""),ts:o[k].ts||0})).filter(i=>i.name);
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
     if(snap===null)allSeen();
@@ -306,7 +311,8 @@ $("f").onsubmit=e=>{
   const v=$("n").value.trim();if(!v)return;
   const q=$("q").value.trim().slice(0,10);
   const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,promo:$("pm").checked,ts:Date.now()};
+  ensureName();
+  const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,promo:$("pm").checked,by:myName,mod:myName,ts:Date.now()};
   items.push({id,...it});mine({id,...it});render();
   w(()=>api("/"+id,"PUT",it));
   $("n").value="";$("q").value="";$("pm").checked=false;$("n").focus();
@@ -374,6 +380,8 @@ async function makePdf(){
   }finally{btn.disabled=false}
 }
 $("pr").onclick=()=>{makePdf().catch(()=>{$("st").textContent="Errore PDF: riprova"})};
+$("me").textContent="👤 "+(myName||"Imposta nome");
+$("me").onclick=()=>{const n=prompt("Il tuo nome:",myName);if(n!==null)setName(n)};
 $("nwb").onclick=()=>{allSeen();render()};
 window.addEventListener("pagehide",()=>{if(loaded)allSeen()});
 loadSnap();render();
