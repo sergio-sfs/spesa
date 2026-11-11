@@ -443,7 +443,7 @@ window.addEventListener("pagehide",()=>{if(loaded)allSeen()});
 loadSnap();render();
 if(localStorage.getItem("spesa_known")===null){known={};saveKnown();fetch(DB_URL+"/lists.json?shallow=true").then(r=>r.ok?r.json():null).then(async o=>{for(const id of Object.keys(o||{})){try{const m=await fetch(DB_URL+"/lists/"+id+"/meta.json").then(r=>r.json())||{};if(!m.salt)remember(id,lab(id,m))}catch(e){}}buildLists()}).catch(()=>{})}
 if(!DB_URL){$("st").textContent="Database non ancora configurato"}
-else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(document.hidden){if(loaded)allSeen()}else load()});pdfLib().catch(()=>{})}
+else{load();setInterval(()=>{if(!document.hidden)load()},10000);document.addEventListener("visibilitychange",()=>{if(document.hidden){if(loaded)allSeen()}else load()});pdfLib().catch(()=>{})}
 </script>
 </body>
 </html>
