@@ -63,6 +63,9 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--mut);font-size:13px}
 .foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
 .msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
+.nw{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--hl);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
+.nw[hidden]{display:none}
+.nw button{padding:6px 10px;font-size:13px;white-space:nowrap}
 .lists{display:flex;gap:8px;margin-bottom:10px}
 #L{flex:1}
 .lists button{padding:10px 12px;font-size:16px;background:var(--card);color:var(--tx);border:1px solid var(--bd)}
@@ -71,7 +74,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#bbb;--hl:#fff1b8}
   body{padding:0;max-width:none}
-  .sub,.dt,.lists,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
+  .sub,.dt,.lists,.nw,form,.cats,.tools,#t,.x,#clr,#pr{display:none!important}
   .pd{display:block;font-size:15px;margin-bottom:10px}
   .it{break-inside:avoid;border-radius:0;border-width:0 0 1px 0;padding:8px 0;margin:0}
   h2{margin-top:14px;break-after:avoid}
@@ -95,6 +98,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="r3"><label class="pm"><input type="checkbox" id="pm"> 🏷️ Promo</label><button class="add">＋ Aggiungi</button></div>
 </form>
 <div class="tools"><input type="search" id="s" placeholder="🔍 Cerca…" autocomplete="off"><select id="o" aria-label="Ordinamento"></select></div>
+<div class="nw" id="nw" hidden><span id="nwt"></span><button id="nwb">Segna come viste</button></div>
 <div class="cats" id="cats"></div>
 <div id="list"></div>
 <div class="foot"><span id="cnt"></span><button id="pr">📄 PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
@@ -109,6 +113,15 @@ const idOk=h=>/^[a-z0-9]{3,20}$/.test(h);
 let curId=location.hash.slice(1);
 if(!idOk(curId)){try{curId=localStorage.getItem("spesa_list")||"main"}catch(e){curId="main"}if(!idOk(curId))curId="main"}
 let base=curId==="main"?"":"/lists/"+curId;
+let snap=null,loaded=false;
+const SK=()=>"spesa_snap_"+curId;
+function loadSnap(){try{const s=localStorage.getItem(SK());snap=s?JSON.parse(s):null}catch(e){snap=null}}
+function saveSnap(){try{localStorage.setItem(SK(),JSON.stringify(snap))}catch(e){}}
+const sig=i=>[i.name,i.qty,i.unit,i.cat,i.done?1:0,i.promo?1:0].join("|");
+function allSeen(){snap={};items.forEach(i=>{snap[i.id]=sig(i)});saveSnap()}
+function mine(i){if(!snap)return;snap[i.id]=sig(i);saveSnap()}
+function gone(id){if(!snap)return;delete snap[id];saveSnap()}
+const isNew=i=>!!snap&&snap[i.id]!==sig(i);
 try{mode=localStorage.getItem("spesa_sort")||"cat"}catch(e){}
 if(!SORTS.some(s=>s[0]===mode))mode="cat";
 const $=id=>document.getElementById(id);
@@ -166,15 +179,16 @@ function render(){
         const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
         const pl=document.createElement("label");pl.className="pm";
         const pc=document.createElement("input");pc.type="checkbox";pc.checked=!!i.promo;pl.append(pc," 🏷️ Promo");
-        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo}))};
+        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;mine(i);editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo}))};
         cn.onclick=()=>{editId=null;render()};
         e.append(n,q,u,k,pl,sv,cn);L.appendChild(e);return;
       }
       const r=document.createElement("div");r.className="it"+(i.done?" d":"")+(i.hl?" hl":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
-      cb.onchange=()=>{i.done=cb.checked;render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
+      cb.onchange=()=>{i.done=cb.checked;mine(i);render();w(()=>api("/"+i.id,"PATCH",{done:i.done}))};
       const s=document.createElement("span");s.textContent=i.name;
-      if(mode!=="cat"){const ic=document.createElement("em");ic.textContent=i.cat.split(" ")[0];s.insertBefore(ic,s.firstChild)}
+      const pre=(isNew(i)?"🆕":"")+(mode!=="cat"?i.cat.split(" ")[0]:"");
+      if(pre){const ic=document.createElement("em");ic.textContent=pre;s.insertBefore(ic,s.firstChild)}
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
       if(i.promo){const t=document.createElement("b");t.className="tag";t.textContent="PROMO";s.appendChild(t)}
       s.onclick=()=>{i.hl=!i.hl;render();w(()=>api("/"+i.id,"PATCH",{hl:i.hl}))};
@@ -183,11 +197,14 @@ function render(){
       const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
       x.onclick=()=>{
         if(!confirm("Eliminare «"+i.name+"»?"))return;
-        items=items.filter(o=>o.id!==i.id);render();w(()=>api("/"+i.id,"DELETE"));
+        items=items.filter(o=>o.id!==i.id);gone(i.id);render();w(()=>api("/"+i.id,"DELETE"));
       };
       r.append(cb,s,p,x);L.appendChild(r);
     });
   });
+  const nn=items.filter(isNew).length;
+  $("nw").hidden=!nn;$("nwt").textContent="🔔 "+nn+" novità (voci nuove o modificate)";
+  document.title=(nn?"("+nn+") ":"")+"Lista della spesa";
   const left=items.filter(i=>!i.done).length;
   $("cnt").textContent=items.length?left+" da prendere":"";
   $("clr").hidden=items.length===left;
@@ -206,6 +223,8 @@ async function load(){
     items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,ts:o[k].ts||0})).filter(i=>i.name);
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
+    if(snap===null)allSeen();
+    loaded=true;
     buildLists(root);
     showHead();
     $("st").textContent=m.shared===true?"🔗 Condivisa":"";
@@ -234,7 +253,7 @@ function buildLists(root){
 function switchList(id){
   if(id===curId)return;
   curId=id;base=id==="main"?"":"/lists/"+id;
-  items=[];flt="";editId=null;lsig="";
+  items=[];flt="";editId=null;lsig="";loaded=false;loadSnap();
   ["t","d","s"].forEach(k=>{$(k).value=""});showHead();
   try{localStorage.setItem("spesa_list",id)}catch(e){}
   render();load();
@@ -260,7 +279,7 @@ $("dl").onclick=async()=>{
   try{
     if(main){
       for(const k of ["items","meta"]){const r=await fetch(DB_URL+"/"+k+".json",{method:"DELETE"});if(!r.ok)throw new Error("HTTP "+r.status)}
-      items=[];flt="";editId=null;lsig="";$("st").textContent="";
+      items=[];flt="";editId=null;lsig="";snap={};saveSnap();$("st").textContent="";
       ["t","d","s"].forEach(k=>{$(k).value=""});showHead();render();
     }else{
       const r=await fetch(DB_URL+"/lists/"+curId+".json",{method:"DELETE"});
@@ -285,14 +304,14 @@ $("f").onsubmit=e=>{
   const q=$("q").value.trim().slice(0,10);
   const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,promo:$("pm").checked,ts:Date.now()};
-  items.push({id,...it});render();
+  items.push({id,...it});mine({id,...it});render();
   w(()=>api("/"+id,"PUT",it));
   $("n").value="";$("q").value="";$("pm").checked=false;$("n").focus();
 };
 $("clr").onclick=()=>{
   const d=items.filter(i=>i.done);if(!d.length)return;
   if(!confirm("Rimuovere "+d.length+(d.length===1?" prodotto spuntato?":" prodotti spuntati?")))return;
-  items=items.filter(i=>!i.done);render();
+  items=items.filter(i=>!i.done);d.forEach(i=>gone(i.id));render();
   d.forEach(i=>w(()=>api("/"+i.id,"DELETE")));
 };
 function pdfLib(){
@@ -352,9 +371,11 @@ async function makePdf(){
   }finally{btn.disabled=false}
 }
 $("pr").onclick=()=>{makePdf().catch(()=>{$("st").textContent="Errore PDF: riprova"})};
-render();
+$("nwb").onclick=()=>{allSeen();render()};
+window.addEventListener("pagehide",()=>{if(loaded)allSeen()});
+loadSnap();render();
 if(!DB_URL){$("st").textContent="Database non ancora configurato"}
-else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});pdfLib().catch(()=>{})}
+else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(document.hidden){if(loaded)allSeen()}else load()});pdfLib().catch(()=>{})}
 </script>
 </body>
 </html>
