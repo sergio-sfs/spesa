@@ -64,6 +64,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 .foot button{background:none;color:var(--ac);padding:6px;font-size:14px}
 .msg{padding:12px;border:1px dashed var(--bd);border-radius:10px;color:var(--mut);text-align:center}
 .nw{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--hl);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
+[hidden]{display:none!important}
 .nw[hidden]{display:none}
 .nw button{padding:6px 10px;font-size:13px;white-space:nowrap}
 .lists{display:flex;gap:8px;margin-bottom:10px}
@@ -101,7 +102,8 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="nw" id="nw" hidden><span id="nwt"></span><button id="nwb">Segna come viste</button></div>
 <div class="cats" id="cats"></div>
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:#fff;border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
@@ -417,6 +419,22 @@ async function makePdf(){
     setTimeout(()=>URL.revokeObjectURL(u),60000);
   }finally{btn.disabled=false}
 }
+$("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
+$("imc").onclick=()=>{$("imd").hidden=true};
+$("imo").onclick=()=>{
+  const lines=$("imt").value.split("\n").map(x=>x.trim()).filter(Boolean);
+  ensureName();let n=0;const t0=Date.now();
+  lines.forEach((ln,k)=>{
+    const p=ln.split(";").map(x=>x.trim());if(!p[0])return;
+    const q=(p[1]||"").slice(0,10),u=q?(UNITS.includes((p[2]||"").toLowerCase())?p[2].toLowerCase():"pz"):"";
+    const cw=(p[3]||"").toLowerCase();
+    const cat=(cw&&CATS.find(c=>c.toLowerCase().includes(cw)||c.startsWith(p[3])))||OTHER;
+    const id="i"+(t0+k).toString(36)+Math.random().toString(36).slice(2,6);
+    const it={name:p[0].slice(0,100),qty:q,unit:u,cat,done:false,hl:false,promo:/^p/i.test(p[4]||""),by:myName,mod:myName,ts:t0+k};
+    items.push({id,...it});mine({id,...it});w(()=>put({id,...it}));n++;
+  });
+  $("imt").value="";$("imd").hidden=true;render();
+};
 $("pr").onclick=()=>{makePdf().catch(()=>{$("st").textContent="Errore PDF: riprova"})};
 $("me").textContent="👤 "+(myName||"Imposta nome");
 $("me").onclick=()=>{const n=prompt("Il tuo nome:",myName);if(n!==null)setName(n)};
