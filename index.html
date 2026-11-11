@@ -129,7 +129,31 @@ try{mode=localStorage.getItem("spesa_sort")||"cat"}catch(e){}
 if(!SORTS.some(s=>s[0]===mode))mode="cat";
 const $=id=>document.getElementById(id);
 const api=(p,m,b)=>fetch(DB_URL+base+"/items"+p+".json",{method:m||"GET",body:b!==undefined?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
-const meta=(k,v)=>fetch(DB_URL+base+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
+const putMeta=(k,v)=>fetch(DB_URL+base+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
+const meta=(k,v)=>{if(key&&k!=="shared"){mm[k]=v;return enc(mm).then(c=>putMeta("t",c))}return putMeta(k,v)};
+let key=null,keyId="",mm={},unl=false;
+const TE=new TextEncoder(),TD=new TextDecoder();
+const b64=u=>{let s="";u.forEach(c=>s+=String.fromCharCode(c));return btoa(s)};
+const unb=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+async function derive(pw,salt){const b=await crypto.subtle.importKey("raw",TE.encode(pw),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt:unb(salt),iterations:150000,hash:"SHA-256"},b,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
+async function enc(o,k){const iv=rnd(12);const c=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k||key,TE.encode(JSON.stringify(o))));const r=new Uint8Array(12+c.length);r.set(iv);r.set(c,12);return b64(r)}
+async function dec(t,k){const u=unb(t);return JSON.parse(TD.decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},k||key,u.slice(12))))}
+const pack=i=>({name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,done:!!i.done,hl:!!i.hl,promo:!!i.promo,by:i.by||"",mod:i.mod||"",ts:i.ts||0});
+const put=i=>key?enc(pack(i)).then(e=>api("/"+i.id,"PUT",{e})):api("/"+i.id,"PUT",pack(i));
+const upd=(i,patch)=>key?put(i):api("/"+i.id,"PATCH",patch);
+let known={};try{known=JSON.parse(localStorage.getItem("spesa_known")||"{}")}catch(e){}
+function saveKnown(){try{localStorage.setItem("spesa_known",JSON.stringify(known))}catch(e){}}
+function remember(id,l){if(known[id]!==l){known[id]=l;saveKnown()}}
+function forget(id){delete known[id];saveKnown();try{localStorage.removeItem("spesa_pw_"+id)}catch(e){}}
+async function unlock(id,m0){
+  let pw=null;try{pw=localStorage.getItem("spesa_pw_"+id)}catch(e){}
+  for(let n=0;;n++){
+    if(pw===null){pw=prompt(n?"Password errata. Riprova:":"Lista protetta: inserisci la password");if(pw===null)return false}
+    try{const k=await derive(pw,m0.salt);if(await dec(m0.chk,k)==="ok"){key=k;keyId=id;try{localStorage.setItem("spesa_pw_"+id,pw)}catch(e){}return true}}catch(e){}
+    pw=null;try{localStorage.removeItem("spesa_pw_"+id)}catch(e){}
+  }
+}
 function fill(sel,arr){arr.forEach(x=>{const o=document.createElement("option");o.textContent=x;sel.appendChild(o)})}
 fill($("u"),UNITS);fill($("c"),CATS);$("c").value=OTHER;
 SORTS.forEach(s=>{const o=document.createElement("option");o.value=s[0];o.textContent=s[1];$("o").appendChild(o)});
@@ -182,20 +206,20 @@ function render(){
         const cn=document.createElement("button");cn.type="button";cn.className="cn";cn.textContent="Annulla";
         const pl=document.createElement("label");pl.className="pm";
         const pc=document.createElement("input");pc.type="checkbox";pc.checked=!!i.promo;pl.append(pc," 🏷️ Promo");
-        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;ensureName();i.mod=myName;mine(i);editId=null;render();w(()=>api("/"+i.id,"PATCH",{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo,mod:myName}))};
+        sv.onclick=()=>{const nm=n.value.trim();if(!nm)return;i.name=nm;i.qty=q.value.trim().slice(0,10);i.unit=i.qty?u.value:"";i.cat=k.value;i.promo=pc.checked;ensureName();i.mod=myName;mine(i);editId=null;render();w(()=>upd(i,{name:i.name,qty:i.qty,unit:i.unit,cat:i.cat,promo:i.promo,mod:myName}))};
         cn.onclick=()=>{editId=null;render()};
         e.append(n,q,u,k,pl,sv,cn);L.appendChild(e);return;
       }
       const r=document.createElement("div");r.className="it"+(i.done?" d":"")+(i.hl?" hl":"");
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!i.done;
-      cb.onchange=()=>{i.done=cb.checked;ensureName();i.mod=myName;mine(i);render();w(()=>api("/"+i.id,"PATCH",{done:i.done,mod:myName}))};
+      cb.onchange=()=>{i.done=cb.checked;ensureName();i.mod=myName;mine(i);render();w(()=>upd(i,{done:i.done,mod:myName}))};
       const s=document.createElement("span");s.textContent=i.name;
       const pre=(isNew(i)?"🆕":"")+(mode!=="cat"?i.cat.split(" ")[0]:"");
       if(pre){const ic=document.createElement("em");ic.textContent=pre;s.insertBefore(ic,s.firstChild)}
       if(i.qty){const m=document.createElement("small");m.textContent="· "+i.qty+(i.unit?" "+i.unit:"");s.appendChild(m)}
       if(i.promo){const t=document.createElement("b");t.className="tag";t.textContent="PROMO";s.appendChild(t)}
       if(isNew(i)&&i.mod){const au=document.createElement("small");au.textContent="· "+i.mod;s.appendChild(au)}
-      s.onclick=()=>{i.hl=!i.hl;render();w(()=>api("/"+i.id,"PATCH",{hl:i.hl}))};
+      s.onclick=()=>{i.hl=!i.hl;render();w(()=>upd(i,{hl:i.hl}))};
       const p=document.createElement("button");p.className="x";p.textContent="✏️";p.setAttribute("aria-label","Modifica");
       p.onclick=()=>{editId=i.id;render()};
       const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Elimina");
@@ -218,50 +242,58 @@ function render(){
   $("clr").hidden=items.length===left;
 }
 function w(fn){busy++;fn().catch(e=>{$("st").textContent="Errore di rete: riprova"}).finally(()=>{busy--})}
+const norm=(k,x)=>({id:k,name:String(x.name||""),qty:String(x.qty||""),unit:String(x.unit||""),cat:CATS.includes(x.cat)?x.cat:OTHER,done:!!x.done,hl:!!x.hl,promo:!!x.promo,by:String(x.by||""),mod:String(x.mod||""),ts:x.ts||0});
+function lab(id,m){let t=(m&&m.title)||(id==="main"?"Lista principale":"Lista senza nome");if(m&&typeof m.date==="string"&&m.date.length===10)t+=" · "+m.date.slice(8,10)+"/"+m.date.slice(5,7);return t}
 async function load(){
-  if(busy||editId)return;
+  if(busy||editId||unl)return;
   try{
     const my=curId;
-    const root=await fetch(DB_URL+"/.json").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})||{};
+    const g=u=>fetch(DB_URL+u).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+    let cur;
+    if(my==="main"){const [a,b]=await Promise.all([g("/items.json"),g("/meta.json")]);cur={items:a,meta:b}}
+    else cur=await g("/lists/"+my+".json");
     if(busy||editId||my!==curId)return;
-    const lists=root.lists||{};
-    if(curId!=="main"&&!lists[curId]){location.hash="#main";return}
-    const cur=curId==="main"?root:lists[curId];
-    const o=cur.items||{},m=cur.meta||{};
-    items=Object.keys(o).map(k=>({id:k,name:String(o[k].name||""),qty:String(o[k].qty||""),unit:String(o[k].unit||""),cat:CATS.includes(o[k].cat)?o[k].cat:OTHER,done:!!o[k].done,hl:!!o[k].hl,promo:!!o[k].promo,by:String(o[k].by||""),mod:String(o[k].mod||""),ts:o[k].ts||0})).filter(i=>i.name);
+    if(!cur){if(my!=="main"){forget(my);location.hash="#main";return}cur={}}
+    const m0=cur.meta||{},o=cur.items||{};
+    let m=m0;
+    if(m0.salt){
+      if(keyId!==my||!key){unl=true;let ok=false;try{ok=await unlock(my,m0)}finally{unl=false}if(my!==curId)return;if(!ok){location.hash="#main";return}}
+      try{mm=await dec(m0.t)}catch(e){mm={}}
+      m={title:mm.title,date:mm.date,shared:m0.shared};
+      const arr=await Promise.all(Object.keys(o).map(async k=>{try{return norm(k,await dec(o[k].e))}catch(e){return null}}));
+      items=arr.filter(i=>i&&i.name);
+    }else{
+      key=null;keyId="";mm={};
+      items=Object.keys(o).map(k=>norm(k,o[k])).filter(i=>i.name);
+    }
+    if(busy||editId||my!==curId)return;
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
     if(snap===null)allSeen();
     loaded=true;
-    buildLists(root);
+    remember(my,lab(my,m));
+    buildLists();
     showHead();
-    $("st").textContent=m.shared===true?"🔗 Condivisa":"";
+    $("st").textContent=(m0.salt?"🔒 ":"")+(m.shared===true?"🔗 Condivisa":"");
     render();
   }catch(e){$("st").textContent="Offline: riprovo…"}
 }
 $("d").onchange=()=>{showHead();const v=$("d").value;w(()=>meta("date",v))};
 $("t").onchange=()=>{showHead();const v=$("t").value.trim().slice(0,80);w(()=>meta("title",v))};
 let lsig="";
-function buildLists(root){
-  const L=root.lists||{};
-  const ids=["main",...Object.keys(L).sort()];
-  const lab=id=>{
-    const m=id==="main"?root.meta:(L[id]||{}).meta;
-    let t=(m&&m.title)||(id==="main"?"Lista principale":"Lista senza nome");
-    if(m&&typeof m.date==="string"&&m.date.length===10)t+=" · "+m.date.slice(8,10)+"/"+m.date.slice(5,7);
-    return t;
-  };
-  const sig=ids.map(id=>id+"="+lab(id)).join("|")+"#"+curId;
-  if(sig!==lsig){
-    lsig=sig;const s=$("L");s.textContent="";
-    ids.forEach(id=>{const o=document.createElement("option");o.value=id;o.textContent=lab(id);s.appendChild(o)});
+function buildLists(){
+  const ids=["main",...Object.keys(known).filter(i=>i!=="main").sort()];
+  const sg=ids.map(id=>id+"="+(known[id]||"")).join("|")+"#"+curId;
+  if(sg!==lsig){
+    lsig=sg;const s=$("L");s.textContent="";
+    ids.forEach(id=>{const o=document.createElement("option");o.value=id;o.textContent=known[id]||(id==="main"?"Lista principale":"Lista senza nome");s.appendChild(o)});
     s.value=curId;
   }
 }
 function switchList(id){
   if(id===curId)return;
   curId=id;base=id==="main"?"":"/lists/"+id;
-  items=[];flt="";editId=null;lsig="";loaded=false;loadSnap();
+  items=[];flt="";editId=null;lsig="";loaded=false;key=null;keyId="";mm={};loadSnap();buildLists();
   ["t","d","s"].forEach(k=>{$(k).value=""});showHead();
   try{localStorage.setItem("spesa_list",id)}catch(e){}
   render();load();
@@ -271,11 +303,17 @@ $("L").onchange=()=>{location.hash="#"+$("L").value};
 $("nl").onclick=async()=>{
   const name=prompt("Nome della nuova lista (es. Esselunga sabato)");
   if(name===null)return;
-  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  const pw=prompt("Password per cifrare la lista (lascia vuoto per nessuna). Chi apre il link dovrà conoscerla: comunicala a parte.");
+  if(pw===null)return;
+  const id=Date.now().toString(36)+Array.from(rnd(8),x=>(x%36).toString(36)).join("");
+  const title=name.trim().slice(0,80)||"Nuova lista";
   busy++;
   try{
-    const r=await fetch(DB_URL+"/lists/"+id+"/meta.json",{method:"PUT",body:JSON.stringify({title:name.trim().slice(0,80)||"Nuova lista",date:""})});
+    let body={title,date:""};
+    if(pw){const salt=b64(rnd(16));const k=await derive(pw,salt);body={salt,chk:await enc("ok",k),t:await enc({title,date:""},k)};try{localStorage.setItem("spesa_pw_"+id,pw)}catch(e){}}
+    const r=await fetch(DB_URL+"/lists/"+id+"/meta.json",{method:"PUT",body:JSON.stringify(body)});
     if(!r.ok)throw new Error("HTTP "+r.status);
+    remember(id,title);
     location.hash="#"+id;
   }catch(e){$("st").textContent="Errore di rete: riprova"}
   finally{busy--}
@@ -292,16 +330,16 @@ $("dl").onclick=async()=>{
     }else{
       const r=await fetch(DB_URL+"/lists/"+curId+".json",{method:"DELETE"});
       if(!r.ok)throw new Error("HTTP "+r.status);
-      location.hash="#main";
+      forget(curId);location.hash="#main";
     }
   }catch(e){$("st").textContent="Errore di rete: riprova"}
   finally{busy--}
 };
 $("sh").onclick=async()=>{
   const url=location.origin+location.pathname+"#"+curId;
-  const title=$("t").value.trim()||"Lista della spesa";
+  const title=key?"Lista della spesa":($("t").value.trim()||"Lista della spesa");
   const mark=()=>{w(()=>meta("shared",true));$("st").textContent="🔗 Condivisa"};
-  try{if(navigator.share){await navigator.share({title,text:"Lista della spesa: "+title,url});mark();return}}catch(e){if(e&&e.name==="AbortError")return}
+  try{if(navigator.share){await navigator.share({title,text:"Lista della spesa"+(key?" (protetta: serve la password)":": "+title),url});mark();return}}catch(e){if(e&&e.name==="AbortError")return}
   try{await navigator.clipboard.writeText(url);mark();alert("Link copiato: incollalo in un messaggio")}catch(e){prompt("Copia il link:",url)}
 };
 $("s").oninput=render;
@@ -314,7 +352,7 @@ $("f").onsubmit=e=>{
   ensureName();
   const it={name:v,qty:q,unit:q?$("u").value:"",cat:$("c").value,done:false,hl:false,promo:$("pm").checked,by:myName,mod:myName,ts:Date.now()};
   items.push({id,...it});mine({id,...it});render();
-  w(()=>api("/"+id,"PUT",it));
+  w(()=>put({id,...it}));
   $("n").value="";$("q").value="";$("pm").checked=false;$("n").focus();
 };
 $("clr").onclick=()=>{
@@ -385,6 +423,7 @@ $("me").onclick=()=>{const n=prompt("Il tuo nome:",myName);if(n!==null)setName(n
 $("nwb").onclick=()=>{allSeen();render()};
 window.addEventListener("pagehide",()=>{if(loaded)allSeen()});
 loadSnap();render();
+if(localStorage.getItem("spesa_known")===null){known={};saveKnown();fetch(DB_URL+"/lists.json?shallow=true").then(r=>r.ok?r.json():null).then(async o=>{for(const id of Object.keys(o||{})){try{const m=await fetch(DB_URL+"/lists/"+id+"/meta.json").then(r=>r.json())||{};if(!m.salt)remember(id,lab(id,m))}catch(e){}}buildLists()}).catch(()=>{})}
 if(!DB_URL){$("st").textContent="Database non ancora configurato"}
 else{load();setInterval(load,4000);document.addEventListener("visibilitychange",()=>{if(document.hidden){if(loaded)allSeen()}else load()});pdfLib().catch(()=>{})}
 </script>
