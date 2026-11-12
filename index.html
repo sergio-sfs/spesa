@@ -14,7 +14,9 @@
 <title>Lista della spesa</title>
 <style>
 :root{--bg:#f6f7f4;--card:#fff;--tx:#1f2a24;--mut:#6b7a72;--ac:#2e8b57;--bd:#e2e6e1;--hl:#fff1b8}
-@media(prefers-color-scheme:dark){:root{--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f;--hl:#4d4421}}
+@media(prefers-color-scheme:dark){:root:not([data-t]){--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f;--hl:#4d4421;color-scheme:dark}}
+:root[data-t=dark]{--bg:#141815;--card:#1e2420;--tx:#e8ede9;--mut:#8a9a91;--ac:#4fbf84;--bd:#2c352f;--hl:#4d4421;color-scheme:dark}
+:root[data-t=light]{--bg:#f6f7f4;--card:#fff;--tx:#1f2a24;--mut:#6b7a72;--ac:#2e8b57;--bd:#e2e6e1;--hl:#fff1b8;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0 auto;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--tx);padding:16px;max-width:560px}
 h1{font-size:22px;margin:4px 0 2px}
@@ -24,7 +26,8 @@ form{margin-bottom:8px}
 input[type=text],input[type=search],input[type=date],select{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:16px;min-width:0}
 #n,#t{width:100%}
 #t{margin-bottom:10px;color:#d92d20;font-weight:600}
-@media(prefers-color-scheme:dark){#t{color:#ff6b5e}}
+@media(prefers-color-scheme:dark){:root:not([data-t]) #t{color:#ff6b5e}}
+:root[data-t=dark] #t{color:#ff6b5e}
 .sub:empty{display:none}
 #q{width:84px}
 #u{width:92px}
@@ -102,14 +105,16 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="nw" id="nw" hidden><span id="nwt"></span><button id="nwb">Segna come viste</button></div>
 <div class="cats" id="cats"></div>
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="hd"></button><button id="clr" hidden>Rimuovi spuntati</button></div>
-<div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:#fff;border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
+<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="th"></button><button id="hd"></button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:var(--card);color:var(--tx);border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
 const OTHER=CATS[CATS.length-1];
 const UNITS=["pz","kg","g","l","ml","conf"];
 const SORTS=[["cat","Per categoria"],["az","A → Z"],["new","Più recenti"],["old","Inseriti prima"]];
+let theme="";try{theme=localStorage.getItem("spesa_theme")||""}catch(e){}
+function applyTheme(){const r=document.documentElement;if(theme)r.setAttribute("data-t",theme);else r.removeAttribute("data-t");$("th").textContent=theme==="dark"?"🌙":theme==="light"?"☀️":"🌓"}
 let hideD=false;try{hideD=localStorage.getItem("spesa_hide")==="1"}catch(e){}
 let items=[],busy=0,editId=null,flt="",mode="cat",pdfP=null;
 const idOk=h=>/^[a-z0-9]{3,20}$/.test(h);
@@ -422,6 +427,7 @@ async function makePdf(){
     setTimeout(()=>URL.revokeObjectURL(u),60000);
   }finally{btn.disabled=false}
 }
+$("th").onclick=()=>{theme=theme===""?"light":theme==="light"?"dark":"";try{localStorage.setItem("spesa_theme",theme)}catch(e){}applyTheme()};
 $("hd").onclick=()=>{hideD=!hideD;try{localStorage.setItem("spesa_hide",hideD?"1":"0")}catch(e){}render()};
 $("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
 $("imc").onclick=()=>{$("imd").hidden=true};
@@ -444,7 +450,7 @@ $("me").textContent="👤 "+(myName||"Imposta nome");
 $("me").onclick=()=>{const n=prompt("Il tuo nome:",myName);if(n!==null)setName(n)};
 $("nwb").onclick=()=>{allSeen();render()};
 window.addEventListener("pagehide",()=>{if(loaded)allSeen()});
-loadSnap();render();
+loadSnap();applyTheme();render();
 if(localStorage.getItem("spesa_known")===null){known={};saveKnown();fetch(DB_URL+"/lists.json?shallow=true").then(r=>r.ok?r.json():null).then(async o=>{for(const id of Object.keys(o||{})){try{const m=await fetch(DB_URL+"/lists/"+id+"/meta.json").then(r=>r.json())||{};if(!m.salt)remember(id,lab(id,m))}catch(e){}}buildLists()}).catch(()=>{})}
 if(!DB_URL){$("st").textContent="Database non ancora configurato"}
 else{load();setInterval(()=>{if(!document.hidden)load()},10000);document.addEventListener("visibilitychange",()=>{if(document.hidden){if(loaded)allSeen()}else load()});pdfLib().catch(()=>{})}
