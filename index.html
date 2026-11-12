@@ -102,7 +102,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div class="nw" id="nw" hidden><span id="nwt"></span><button id="nwb">Segna come viste</button></div>
 <div class="cats" id="cats"></div>
 <div id="list"></div>
-<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="clr" hidden>Rimuovi spuntati</button></div>
+<div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="hd"></button><button id="clr" hidden>Rimuovi spuntati</button></div>
 <div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:#fff;border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
 <script>
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
@@ -110,6 +110,7 @@ const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 
 const OTHER=CATS[CATS.length-1];
 const UNITS=["pz","kg","g","l","ml","conf"];
 const SORTS=[["cat","Per categoria"],["az","A → Z"],["new","Più recenti"],["old","Inseriti prima"]];
+let hideD=false;try{hideD=localStorage.getItem("spesa_hide")==="1"}catch(e){}
 let items=[],busy=0,editId=null,flt="",mode="cat",pdfP=null;
 const idOk=h=>/^[a-z0-9]{3,20}$/.test(h);
 let curId=location.hash.slice(1);
@@ -193,8 +194,8 @@ function render(){
   chips();
   const L=$("list");L.textContent="";
   const qs=$("s").value.trim().toLowerCase();
-  const vis=items.filter(i=>(!flt||(flt==="__promo"?i.promo:i.cat===flt))&&(!qs||i.name.toLowerCase().includes(qs)));
-  if(!vis.length){const d=document.createElement("div");d.className="msg";d.textContent=items.length?"Nessun risultato":"Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
+  const vis=items.filter(i=>(!hideD||!i.done)&&(!flt||(flt==="__promo"?i.promo:i.cat===flt))&&(!qs||i.name.toLowerCase().includes(qs)));
+  if(!vis.length){const d=document.createElement("div");d.className="msg";d.textContent=items.length?(hideD&&items.every(i=>i.done)?"Tutto spuntato 🎉 (voci nascoste)":"Nessun risultato"):"Lista vuota. Aggiungi il primo prodotto!";L.appendChild(d)}
   groups(vis).forEach(g=>{
     if(g.t){const h=document.createElement("h2");h.textContent=g.t;L.appendChild(h)}
     g.l.forEach(i=>{
@@ -242,6 +243,8 @@ function render(){
   const left=items.filter(i=>!i.done).length;
   $("cnt").textContent=items.length?left+" da prendere":"";
   $("clr").hidden=items.length===left;
+  $("hd").hidden=items.length===left;
+  $("hd").textContent=hideD?"👁️ Mostra spuntati":"🙈 Nascondi spuntati";
 }
 function w(fn){busy++;fn().catch(e=>{$("st").textContent="Errore di rete: riprova"}).finally(()=>{busy--})}
 const norm=(k,x)=>({id:k,name:String(x.name||""),qty:String(x.qty||""),unit:String(x.unit||""),cat:CATS.includes(x.cat)?x.cat:OTHER,done:!!x.done,hl:!!x.hl,promo:!!x.promo,by:String(x.by||""),mod:String(x.mod||""),ts:x.ts||0});
@@ -419,6 +422,7 @@ async function makePdf(){
     setTimeout(()=>URL.revokeObjectURL(u),60000);
   }finally{btn.disabled=false}
 }
+$("hd").onclick=()=>{hideD=!hideD;try{localStorage.setItem("spesa_hide",hideD?"1":"0")}catch(e){}render()};
 $("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
 $("imc").onclick=()=>{$("imd").hidden=true};
 $("imo").onclick=()=>{
