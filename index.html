@@ -397,8 +397,9 @@ async function makePdf(){
     if(v){doc.text(cl("Spesa del "+fmt(v)),L,y);y+=7}
     doc.setTextColor(0);y+=3;
     const need=h=>{if(y+h>285){doc.addPage();y=20}};
-    if(!items.length){doc.setFontSize(12);doc.text("Lista vuota",L,y)}
-    groups(items).forEach(g=>{
+    const pit=hideD?items.filter(i=>!i.done):items;
+    if(!pit.length){doc.setFontSize(12);doc.text("Lista vuota",L,y)}
+    groups(pit).forEach(g=>{
       if(g.t){
         need(16);y+=3;
         doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(0);
