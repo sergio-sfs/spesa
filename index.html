@@ -107,7 +107,9 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div id="list"></div>
 <div class="foot"><span id="cnt"></span><button id="me"></button><button id="pr">📄 PDF</button><button id="im">📥 Importa</button><button id="th"></button><button id="hd"></button><button id="clr" hidden>Rimuovi spuntati</button></div>
 <div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:var(--card);color:var(--tx);border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
+<div id="ver" style="text-align:center;font-size:11px;color:var(--mut);margin-top:10px"></div>
 <script>
+const APP_V="1.0 · 21/11/2026";
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
 const OTHER=CATS[CATS.length-1];
@@ -436,6 +438,7 @@ $("al").onclick=()=>{
   if(!known[c])remember(c,"Lista senza nome");
   if(location.hash==="#"+c)switchList(c);else location.hash="#"+c;
 };
+$("ver").textContent="Versione "+APP_V;
 $("th").onclick=()=>{theme=theme===""?"light":theme==="light"?"dark":"";try{localStorage.setItem("spesa_theme",theme)}catch(e){}applyTheme()};
 $("hd").onclick=()=>{hideD=!hideD;try{localStorage.setItem("spesa_hide",hideD?"1":"0")}catch(e){}render()};
 $("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
