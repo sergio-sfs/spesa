@@ -88,7 +88,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
-<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista">🗑️</button></div>
+<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="al" title="Aggiungi lista da link">🔗</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista">🗑️</button></div>
 <input type="text" id="t" placeholder="📝 Titolo o nota della lista (es. Esselunga sabato)" maxlength="80" autocomplete="off">
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
 <div class="pd"><b id="pdt"></b><div id="pdd"></div></div>
@@ -429,6 +429,13 @@ async function makePdf(){
     setTimeout(()=>URL.revokeObjectURL(u),60000);
   }finally{btn.disabled=false}
 }
+$("al").onclick=()=>{
+  const v=prompt("Incolla il link o il codice della lista");if(v===null)return;
+  const t=v.trim(),c=t.includes("#")?t.split("#").pop():t;
+  if(!idOk(c)){alert("Link o codice non valido");return}
+  if(!known[c])remember(c,"Lista senza nome");
+  if(location.hash==="#"+c)switchList(c);else location.hash="#"+c;
+};
 $("th").onclick=()=>{theme=theme===""?"light":theme==="light"?"dark":"";try{localStorage.setItem("spesa_theme",theme)}catch(e){}applyTheme()};
 $("hd").onclick=()=>{hideD=!hideD;try{localStorage.setItem("spesa_hide",hideD?"1":"0")}catch(e){}render()};
 $("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
