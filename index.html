@@ -88,7 +88,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <body>
 <h1>🛒 Lista della spesa</h1>
 <div class="sub" id="st">Connessione…</div>
-<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="al" title="Aggiungi lista da link">🔗</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista">🗑️</button></div>
+<div class="lists"><select id="L" aria-label="Liste"></select><button id="nl" title="Nuova lista">＋</button><button id="al" title="Aggiungi lista da link">🔗</button><button id="kp" title="Password lista">🔑</button><button id="sh" title="Condividi">📤</button><button id="dl" title="Elimina lista">🗑️</button></div>
 <input type="text" id="t" placeholder="📝 Titolo o nota della lista (es. Esselunga sabato)" maxlength="80" autocomplete="off">
 <div class="dt"><label for="d">📅 Data spesa</label><input type="date" id="d"></div>
 <div class="pd"><b id="pdt"></b><div id="pdd"></div></div>
@@ -109,7 +109,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:var(--card);color:var(--tx);border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
 <div id="ver" style="text-align:center;font-size:11px;color:var(--mut);margin-top:10px"></div>
 <script>
-const APP_V="1.1 · 21/11/2026";
+const APP_V="1.2 · 21/11/2026";
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
 const OTHER=CATS[CATS.length-1];
@@ -141,7 +141,7 @@ const $=id=>document.getElementById(id);
 const api=(p,m,b)=>fetch(DB_URL+base+"/items"+p+".json",{method:m||"GET",body:b!==undefined?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
 const putMeta=(k,v)=>fetch(DB_URL+base+"/meta/"+k+".json",{method:"PUT",body:JSON.stringify(v)}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status)});
 const meta=(k,v)=>{if(key&&k!=="shared"){mm[k]=v;return enc(mm).then(c=>putMeta("t",c))}return putMeta(k,v)};
-let key=null,keyId="",mm={},unl=false;
+let key=null,keyId="",keySalt="",mm={},unl=false,curShared=false;
 const TE=new TextEncoder(),TD=new TextDecoder();
 const b64=u=>{let s="";u.forEach(c=>s+=String.fromCharCode(c));return btoa(s)};
 const unb=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
@@ -160,7 +160,7 @@ async function unlock(id,m0){
   let pw=null;try{pw=localStorage.getItem("spesa_pw_"+id)}catch(e){}
   for(let n=0;;n++){
     if(pw===null){pw=prompt(n?"Password errata. Riprova:":"Lista protetta: inserisci la password");if(pw===null)return false}
-    try{const k=await derive(pw,m0.salt);if(await dec(m0.chk,k)==="ok"){key=k;keyId=id;try{localStorage.setItem("spesa_pw_"+id,pw)}catch(e){}return true}}catch(e){}
+    try{const k=await derive(pw,m0.salt);if(await dec(m0.chk,k)==="ok"){key=k;keyId=id;keySalt=m0.salt;try{localStorage.setItem("spesa_pw_"+id,pw)}catch(e){}return true}}catch(e){}
     pw=null;try{localStorage.removeItem("spesa_pw_"+id)}catch(e){}
   }
 }
@@ -251,6 +251,7 @@ function render(){
   const left=items.filter(i=>!i.done).length;
   $("cnt").textContent=items.length?left+" da prendere":"";
   $("clr").hidden=items.length===left;
+  $("kp").hidden=curId==="main";
   $("hd").hidden=items.length===left;
   $("hd").textContent=hideD?"👁️ Mostra spuntati":"🙈 Nascondi spuntati";
 }
@@ -270,7 +271,7 @@ async function load(){
     const m0=cur.meta||{},o=cur.items||{};
     let m=m0;
     if(m0.salt){
-      if(keyId!==my||!key){unl=true;let ok=false;try{ok=await unlock(my,m0)}finally{unl=false}if(my!==curId)return;if(!ok){if(confirm("Password non inserita. Rimuovere questa lista dal tuo elenco? (la lista resta per gli altri)"))forget(my);location.hash="#main";return}}
+      if(keyId!==my||!key||keySalt!==m0.salt){unl=true;let ok=false;try{ok=await unlock(my,m0)}finally{unl=false}if(my!==curId)return;if(!ok){if(confirm("Password non inserita. Rimuovere questa lista dal tuo elenco? (la lista resta per gli altri)"))forget(my);location.hash="#main";return}}
       try{mm=await dec(m0.t)}catch(e){mm={}}
       m={title:mm.title,date:mm.date,shared:m0.shared};
       const arr=await Promise.all(Object.keys(o).map(async k=>{try{return norm(k,await dec(o[k].e))}catch(e){return null}}));
@@ -280,6 +281,7 @@ async function load(){
       items=Object.keys(o).map(k=>norm(k,o[k])).filter(i=>i.name);
     }
     if(busy||editId||my!==curId)return;
+    curShared=m.shared===true;
     if(document.activeElement!==$("d"))$("d").value=typeof m.date==="string"?m.date:"";
     if(document.activeElement!==$("t"))$("t").value=typeof m.title==="string"?m.title:"";
     if(snap===null)allSeen();
@@ -439,6 +441,31 @@ $("al").onclick=()=>{
   if(location.hash==="#"+c)switchList(c);else location.hash="#"+c;
 };
 $("ver").textContent="Versione "+APP_V;
+$("kp").onclick=async()=>{
+  if(curId==="main"||!loaded)return;
+  const pw=prompt(key?"Nuova password per questa lista (lascia vuoto per TOGLIERE la password). Chi ha il link dovrà usare la nuova password.":"Imposta una password per cifrare questa lista (lascia vuoto per non cambiare nulla).");
+  if(pw===null||(!key&&!pw))return;
+  const title=$("t").value.trim().slice(0,80),date=$("d").value;
+  busy++;
+  try{
+    const L="/lists/"+curId;let its={},mt,nk=null,salt="";
+    if(pw){
+      salt=b64(rnd(16));nk=await derive(pw,salt);
+      for(const i of items)its[i.id]={e:await enc(pack(i),nk)};
+      mt={salt,chk:await enc("ok",nk),t:await enc({title,date},nk)};
+    }else{
+      items.forEach(i=>{its[i.id]=pack(i)});
+      mt={title,date};
+    }
+    if(curShared)mt.shared=true;
+    for(const [u,b] of [[L+"/items.json",its],[L+"/meta.json",mt]]){const r=await fetch(DB_URL+u,{method:"PUT",body:JSON.stringify(b)});if(!r.ok)throw new Error("HTTP "+r.status)}
+    if(pw){key=nk;keyId=curId;keySalt=salt;mm={title,date};try{localStorage.setItem("spesa_pw_"+curId,pw)}catch(e){}}
+    else{key=null;keyId="";keySalt="";mm={};try{localStorage.removeItem("spesa_pw_"+curId)}catch(e){}}
+    $("st").textContent=(pw?"🔒 ":"")+(curShared?"🔗 Condivisa":"");
+    alert(pw?"Password impostata. Comunicala a chi usa la lista: dovranno inserire la nuova.":"Password rimossa: la lista ora è in chiaro.");
+  }catch(e){$("st").textContent="Errore di rete: riprova"}
+  finally{busy--}
+};
 $("th").onclick=()=>{theme=theme===""?"light":theme==="light"?"dark":"";try{localStorage.setItem("spesa_theme",theme)}catch(e){}applyTheme()};
 $("hd").onclick=()=>{hideD=!hideD;try{localStorage.setItem("spesa_hide",hideD?"1":"0")}catch(e){}render()};
 $("im").onclick=()=>{$("imd").hidden=false;$("imt").focus()};
