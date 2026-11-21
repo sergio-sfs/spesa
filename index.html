@@ -109,7 +109,7 @@ h2{font-size:14px;margin:16px 0 6px;color:var(--mut);text-transform:uppercase;le
 <div id="imd" hidden style="position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:var(--card);color:var(--tx);border-radius:12px;padding:12px;width:100%;max-width:480px"><div style="font-size:13px;margin-bottom:6px">Una voce per riga: <b>nome ; qtà ; unità ; categoria ; P</b> (P = promo). Tutto tranne il nome è facoltativo.</div><textarea id="imt" rows="10" style="width:100%;box-sizing:border-box;font-size:16px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="imo" style="flex:1">Importa</button><button id="imc" style="flex:1">Annulla</button></div></div></div>
 <div id="ver" style="text-align:center;font-size:11px;color:var(--mut);margin-top:10px"></div>
 <script>
-const APP_V="1.0 · 21/11/2026";
+const APP_V="1.1 · 21/11/2026";
 const DB_URL="https://spesa-famiglia-88183-default-rtdb.europe-west1.firebasedatabase.app";
 const CATS=["🥬 Frutta e verdura","🥛 Latticini","🥩 Carne e pesce","🧀 Salumi e formaggi","🍞 Pane e forno","🍝 Dispensa","🧊 Surgelati","🥤 Bevande","🍪 Colazione e dolci","🧴 Casa e igiene","🍕 Pizza","🥘 Gastronomia","🍽️ Ristorante","🐾 Animali","💊 Farmacia","📦 Altro"];
 const OTHER=CATS[CATS.length-1];
@@ -270,7 +270,7 @@ async function load(){
     const m0=cur.meta||{},o=cur.items||{};
     let m=m0;
     if(m0.salt){
-      if(keyId!==my||!key){unl=true;let ok=false;try{ok=await unlock(my,m0)}finally{unl=false}if(my!==curId)return;if(!ok){location.hash="#main";return}}
+      if(keyId!==my||!key){unl=true;let ok=false;try{ok=await unlock(my,m0)}finally{unl=false}if(my!==curId)return;if(!ok){if(confirm("Password non inserita. Rimuovere questa lista dal tuo elenco? (la lista resta per gli altri)"))forget(my);location.hash="#main";return}}
       try{mm=await dec(m0.t)}catch(e){mm={}}
       m={title:mm.title,date:mm.date,shared:m0.shared};
       const arr=await Promise.all(Object.keys(o).map(async k=>{try{return norm(k,await dec(o[k].e))}catch(e){return null}}));
@@ -333,7 +333,8 @@ $("nl").onclick=async()=>{
 };
 $("dl").onclick=async()=>{
   const main=curId==="main";
-  if(!confirm(main?"Svuotare la lista principale? Verranno eliminati voci, titolo e data.":"Eliminare questa lista e tutte le sue voci?"))return;
+  if(!main&&confirm("Togliere questa lista solo dal tuo elenco? (resta per gli altri)\nOK = la tolgo solo a me. Annulla = vedi altre opzioni.")){forget(curId);location.hash="#main";return}
+  if(!confirm(main?"Svuotare la lista principale? Verranno eliminati voci, titolo e data.":"Eliminare la lista e tutte le sue voci PER TUTTI?"))return;
   busy++;
   try{
     if(main){
@@ -435,7 +436,6 @@ $("al").onclick=()=>{
   const v=prompt("Incolla il link o il codice della lista");if(v===null)return;
   const t=v.trim(),c=t.includes("#")?t.split("#").pop():t;
   if(!idOk(c)){alert("Link o codice non valido");return}
-  if(!known[c])remember(c,"Lista senza nome");
   if(location.hash==="#"+c)switchList(c);else location.hash="#"+c;
 };
 $("ver").textContent="Versione "+APP_V;
